@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.drawerlayout.widget.DrawerLayout xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/drawer_layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Main content -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/black"
+        android:id="@+id/MainContent">
+
+        <RelativeLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentTop="true"
+            android:id="@+id/staticButtonContainer">
+
+        <ImageButton
+            android:id="@+id/removeButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@mipmap/ic_launcher_round"
+            android:background="@null"
+            tools:ignore="ContentDescription"
+            app:tint="@color/white" />
+
+
+        <ImageButton
+            android:id="@+id/saveButton"
+            android:layout_width="91dp"
+            android:layout_height="99dp"
+            android:layout_below="@+id/removeButton"
+            android:src="@drawable/ic_launcher_foreground"
+            android:background="@null"
+            app:tint="@color/white"
+            tools:ignore="ContentDescription" />
+
+        <ImageButton
+            android:id="@+id/loadButton"
+            android:layout_width="91dp"
+            android:layout_height="99dp"
+            android:layout_below="@+id/saveButton"
+            android:src="@drawable/ic_launcher_foreground"
+            android:background="@null"
+            app:tint="@color/white"
+            tools:ignore="ContentDescription" />
+        <!-- Your main content goes here -->
+        </RelativeLayout>
+
+    </RelativeLayout>
+
+    <!-- Drawer -->
+    <RelativeLayout
+        android:id="@+id/drawer"
+        android:layout_width="150sp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        app:tint="@color/white"
+        android:background="@android:color/holo_blue_light">
+
+        <!-- Your drawer items go here -->
+
+        <ImageButton
+            android:id="@+id/button1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="true"
+            android:clickable="false"
+            android:focusable="false"
+            android:tag="singleButton_key_a"
+            android:src="@mipmap/key_a"
+            android:background="@null"
+            app:tint="@color/white"
+            tools:ignore="ContentDescription" />
+
+        <ImageButton
+            android:id="@+id/button2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/button1"
+            android:clickable="false"
+            android:focusable="false"
+            android:tag="singleButton_key_b"
+            android:src="@mipmap/key_b"
+            android:background="@null"
+            app:tint="@color/white"
+            tools:ignore="ContentDescription" />
+
+    </RelativeLayout>
+
+</androidx.drawerlayout.widget.DrawerLayout>
