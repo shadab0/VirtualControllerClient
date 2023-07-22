@@ -1,69 +1,54 @@
 package com.example.zerocontrollerclient
 
+import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.BitmapFactory
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.PorterDuff
-import android.graphics.drawable.BitmapDrawable
+import android.os.Build
 import android.os.Bundle
-import android.os.Debug
 import android.os.Handler
-import android.util.Base64
+import android.util.DisplayMetrics
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewTreeObserver
+import android.view.WindowInsets
+import android.view.WindowInsetsController
+import android.view.WindowManager
 import android.widget.ImageButton
-import android.widget.ImageView
 import android.widget.RelativeLayout
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContentProviderCompat.requireContext
-import com.google.gson.Gson
-import com.google.gson.internal.LinkedTreeMap
-import com.google.gson.reflect.TypeToken
-import java.net.Socket
-import java.util.LinkedList
 import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledExecutorService
-import java.util.concurrent.TimeUnit
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.pow
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 
+@Suppress("DEPRECATION")
 class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
 
-    private lateinit var joystickBase: ImageView
-    private lateinit var joystickStick: ImageView
-    private lateinit var rightAnalogue: View
     private lateinit var playActivityMainContent: RelativeLayout
 
     private val socketMessage = ConcurrentLinkedQueue<String>()
     private var socketAnalogueR = ""
     private var socketAnalogueL = ""
 
-    private var xPosition = 0
-    private var yPosition = 0
+    private var notchwidth = 0
+    private var profile = ""
+    val values1 = arrayOf(0, 120, 180, 240, 450, 480)
+    val values2 = arrayOf(0, 7, 10, 14, 25, 27)
+    var currentIndex = 0
+
 
     private lateinit var handler: Handler
 
+    @SuppressLint("ClickableViewAccessibility", "InflateParams")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_controller_play)
-
-        val inflater = getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
-        rightAnalogue = inflater.inflate(R.layout.alanogue, null)
+        profile = intent.getStringExtra(Intent.EXTRA_TEXT).toString()
+        Toast.makeText(this,"Loaded $profile", Toast.LENGTH_SHORT).show()
         playActivityMainContent = findViewById(R.id.playActivityMainContent)
-        playActivityMainContent.addView(rightAnalogue)
-
-        joystickBase = rightAnalogue.findViewById(R.id.joystick_base)
-        joystickStick = rightAnalogue.findViewById(R.id.joystick_stick)
-        joystickStick.setOnTouchListener(this)
 
       /*  handler = Handler()
         handler.postDelayed(object : Runnable {
@@ -121,142 +106,271 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
         }.start()*/
 
 
-        val buttonList = loadButtonList(this)
+        onLoadLayout(loadButtonList(this))
 
-        for (buttonInfo in buttonList){
-            if (buttonInfo.second.first.first.contains("singleButton")) {
-                val button = ImageButton(this)
-                val bytes = Base64.decode(buttonInfo.first.first, Base64.DEFAULT)
-                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                val drawable = BitmapDrawable(resources, bitmap)
-                button.setImageDrawable(drawable)
-                button.id = buttonInfo.first.second
-                button.tag = buttonInfo.second.first.first
-                button.scaleX = buttonInfo.second.first.second.first
-                button.scaleY = buttonInfo.second.first.second.second
-                button.background = null
-                button.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
-                val layoutParams = RelativeLayout.LayoutParams(
-                    RelativeLayout.LayoutParams.WRAP_CONTENT,
-                    RelativeLayout.LayoutParams.WRAP_CONTENT
-                )
-                layoutParams.leftMargin = buttonInfo.second.second.first
-                layoutParams.topMargin = buttonInfo.second.second.second
-                playActivityMainContent.addView( button, layoutParams)
-                button.setOnTouchListener(this)
-            }
-           /* button.setOnLongClickListener { dragButton(button) }
-            button.setOnClickListener { addButtonFilter(button) }*/
-        }
+//        findViewById<Button>(R.id.button).setOnClickListener {
+//            if (currentIndex>5)
+//            {
+//                Toast.makeText(this, "Done", Toast.LENGTH_SHORT).show()
+//                return@setOnClickListener
+//            }
+//            currentIndex++
+//            if(currentIndex<values1.size) {
+//                val layoutParams1 = RelativeLayout.LayoutParams(values1[currentIndex],values1[currentIndex])
+//                joystick.layoutParams = layoutParams1
+//                val layoutParams2 = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT,RelativeLayout.LayoutParams.MATCH_PARENT)
+//                layoutParams2.setMargins(values2[currentIndex],values2[currentIndex],values2[currentIndex],values2[currentIndex])
+//                joystickBase.layoutParams = layoutParams2
+//            }
+//            saveimage(joystick,"base")
+//        }
 
     }
 
-    private fun loadButtonList(context: Context): MutableList<Pair<Pair<String, Int>, Pair<Pair<String, Pair<Float, Float>>, Pair<Int, Int>>>> {
-        val prefs = context.getSharedPreferences("my_prefs", Context.MODE_PRIVATE)
+    @SuppressLint("ClickableViewAccessibility", "InflateParams")
+    private fun onLoadLayout(buttonList: MutableList<Pair<Pair<Pair<Int,Int>,Pair<Int,Int>>,Pair<Pair<Float,Float>,Pair<Int,Int>>>>){
+        for (buttonInfo in buttonList) {
+            when (buttonInfo.first.first.first) {
+                R.id.key_joystick_l -> {
+                    val joystickView = JoystickView(this,null)
+                    val layoutParams = RelativeLayout.LayoutParams(buttonInfo.first.second.first,buttonInfo.first.second.second)
+                    layoutParams.leftMargin = buttonInfo.second.second.first
+                    layoutParams.topMargin = buttonInfo.second.second.second
+                    joystickView.layoutParams = layoutParams
+                    joystickView.scaleX = buttonInfo.second.first.first
+                    joystickView.scaleY = buttonInfo.second.first.second
+                    joystickView.left = true
+                    playActivityMainContent.addView(joystickView)
+                }
+                R.id.key_joystick_r -> {
+                    val joystickView = JoystickView(this,null)
+                    val layoutParams = RelativeLayout.LayoutParams(buttonInfo.first.second.first,buttonInfo.first.second.second)
+                    layoutParams.leftMargin = buttonInfo.second.second.first
+                    layoutParams.topMargin = buttonInfo.second.second.second
+                    joystickView.layoutParams = layoutParams
+                    joystickView.scaleX = buttonInfo.second.first.first
+                    joystickView.scaleY = buttonInfo.second.first.second
+                    joystickView.left = false
+                    playActivityMainContent.addView(joystickView)
+                }
+                R.id.key_dpad -> {
+                    val dpadView = DpadView(this,null)
+                    val layoutParams = RelativeLayout.LayoutParams(buttonInfo.first.second.first,buttonInfo.first.second.second)
+                    layoutParams.leftMargin = buttonInfo.second.second.first
+                    layoutParams.topMargin = buttonInfo.second.second.second
+                    dpadView.layoutParams = layoutParams
+                    dpadView.scaleX = buttonInfo.second.first.first
+                    dpadView.scaleY = buttonInfo.second.first.second
+                    playActivityMainContent.addView(dpadView)
+                }
+                R.id.key_action_button -> {
+                    val actionButtonView = ActionButtonView(this,null)
+                    val layoutParams = RelativeLayout.LayoutParams(buttonInfo.first.second.first,buttonInfo.first.second.second)
+                    layoutParams.leftMargin = buttonInfo.second.second.first
+                    layoutParams.topMargin = buttonInfo.second.second.second
+                    actionButtonView.layoutParams = layoutParams
+                    actionButtonView.scaleX = buttonInfo.second.first.first
+                    actionButtonView.scaleY = buttonInfo.second.first.second
+                    playActivityMainContent.addView(actionButtonView)
+                }
+                R.id.key_circular_button -> {
+                    val circularActionButtonView = CircularActionButtonView(this,null)
+                    val layoutParams = RelativeLayout.LayoutParams(buttonInfo.first.second.first,buttonInfo.first.second.second)
+                    layoutParams.leftMargin = buttonInfo.second.second.first
+                    layoutParams.topMargin = buttonInfo.second.second.second
+                    circularActionButtonView.layoutParams = layoutParams
+                    circularActionButtonView.scaleX = buttonInfo.second.first.first
+                    circularActionButtonView.scaleY = buttonInfo.second.first.second
+                    playActivityMainContent.addView(circularActionButtonView)
+                }
+                else -> {
+                    val button = ImageButton(this)
+                    button.id = buttonInfo.first.first.first
+                    button.setImageResource(buttonInfo.first.first.second)
+                    button.scaleX = buttonInfo.second.first.first
+                    button.scaleY = buttonInfo.second.first.second
+                    button.background = null
+                    button.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+                    val layoutParams = RelativeLayout.LayoutParams(buttonInfo.first.second.first, buttonInfo.first.second.second)
+                    layoutParams.leftMargin = buttonInfo.second.second.first
+                    layoutParams.topMargin = buttonInfo.second.second.second
+                    button.layoutParams = layoutParams
+                    playActivityMainContent.addView(button)
+                    button.setOnTouchListener(this)
+                }
+            }
+        }
+    }
+
+//    private fun saveimage(view: View, name: String)
+//    {
+//        view.isDrawingCacheEnabled = true
+//        view.buildDrawingCache()
+//        view.drawingCacheQuality = View.DRAWING_CACHE_QUALITY_HIGH
+//        val bitmap = Bitmap.createBitmap(view.drawingCache)
+//        view.isDrawingCacheEnabled = false
+//        val imagesDir = File(this.getExternalFilesDir(null), "images")
+//        imagesDir.mkdirs()
+//        val imageFile = File(imagesDir, "${name}_${values1[currentIndex-1]}.png")
+//        try {
+//            val outputStream: OutputStream = FileOutputStream(imageFile)
+//            bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+//            outputStream.flush()
+//            outputStream.close()
+//            Toast.makeText(this, "Saved ${name}_${values1[currentIndex-1]}.png", Toast.LENGTH_SHORT).show()
+//        } catch (e: Exception) {
+//            e.printStackTrace()
+//        }
+//    }
+
+    private fun loadButtonList(context: Context): MutableList<Pair<Pair<Pair<Int,Int>,Pair<Int,Int>>,Pair<Pair<Float,Float>,Pair<Int,Int>>>> {
+        val prefs = context.getSharedPreferences(profile, Context.MODE_PRIVATE)
         val buttonCount = prefs.getInt("button_count", 0)
-        val buttonList = mutableListOf<Pair<Pair<String, Int>, Pair<Pair<String, Pair<Float, Float>>, Pair<Int, Int>>>>()
+        val buttonList: MutableList<Pair<Pair<Pair<Int,Int>,Pair<Int,Int>>,Pair<Pair<Float,Float>,Pair<Int,Int>>>> = mutableListOf()
         for (i in 0 until buttonCount) {
-            val buttonSrc = prefs.getString("button_${i}_src", null) ?: continue
             val buttonId = prefs.getInt("button_${i}_id", 0)
-            val buttonTag = prefs.getString("button_${i}_tag", "#FFFFFF") ?: "#FFFFFF"
-            val buttonScaleX = prefs.getFloat("button_${i}_scalex", 0f)
-            val buttonScaleY = prefs.getFloat("button_${i}_scaley", 0f)
+            val buttonSrc = prefs.getInt("button_${i}_src", 0)
+            val buttonWidth = prefs.getInt("button_${i}_width", 0)
+            val buttonHeight = prefs.getInt("button_${i}_height", 0)
+            val buttonScaleX = prefs.getFloat("button_${i}_scaleX", 0f)
+            val buttonScaleY = prefs.getFloat("button_${i}_scaleY", 0f)
             val buttonX = prefs.getInt("button_${i}_x", 0)
             val buttonY = prefs.getInt("button_${i}_y", 0)
-            buttonList.add(Pair(Pair(buttonSrc, buttonId), Pair(Pair(buttonTag, Pair(buttonScaleX, buttonScaleY)), Pair(buttonX, buttonY ))))
+            buttonList.add(Pair(Pair(Pair(buttonId,buttonSrc),Pair(buttonWidth,buttonHeight)),Pair(Pair(buttonScaleX,buttonScaleY),Pair(buttonX,buttonY))))
         }
         return buttonList
     }
 
+
+    @SuppressLint("ClickableViewAccessibility", "NewApi")
     override fun onTouch(v: View, event: MotionEvent): Boolean {
-        var tag = ""
-        if(v.tag != null)
-            tag = v.tag as String
-        if (v == joystickStick) {
-            when (event.action) {
-                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                    val rawX = event.rawX
-                    val rawY = event.rawY
-
-                    // Calculate the distance from the center of the joystick base to the touch event point
-                    val distance = sqrt(
-                        (rawX - joystickBase.x - joystickBase.width / 2).pow(2) + (rawY - joystickBase.y - joystickBase.height / 2).pow(
-                            2
-                        )
-                    )
-
-                    // Clamp the distance to the radius of the joystick base
-                    val maxDistance = joystickBase.width / 2.toDouble()
-                    var clampedX = rawX
-                    var clampedY = rawY
-                    if (distance > maxDistance) {
-                        val angle = atan2(
-                            rawY - joystickBase.y - joystickBase.height / 2,
-                            rawX - joystickBase.x - joystickBase.width / 2
-                        )
-                        clampedX =
-                            (joystickBase.x + joystickBase.width / 2 + maxDistance * cos(angle)).toFloat()
-                        clampedY =
-                            (joystickBase.y + joystickBase.height / 2 + maxDistance * sin(angle)).toFloat()
-                    }
-
-                    // Calculate the x and y positions based on the clamped touch event coordinates
-                    val scale = min(joystickBase.width, joystickBase.height) / 2.0
-                    xPosition =
-                        ((clampedX - (joystickBase.x + joystickBase.width / 2)) * 32767 / scale).toInt()
-                    yPosition =
-                        ((clampedY - (joystickBase.y + joystickBase.height / 2)) * 32767 / scale).toInt()
-
-                    // Clamp x and y positions to range -32767 to 32767
-                    xPosition = xPosition.coerceIn(-32767, 32767)
-                    yPosition = yPosition.coerceIn(-32767, 32767)
-
-                    socketAnalogueR = "R$xPosition|$yPosition,";
-                    // Update joystick stick position
-                    joystickStick.x = clampedX - joystickStick.width / 2
-                    joystickStick.y = clampedY - joystickStick.height / 2
-
-                    // Use xPosition and yPosition as desired
-                }
-
-                MotionEvent.ACTION_UP -> {
-                    // Reset x and y positions
-                    xPosition = 0
-                    yPosition = 0
-
-                    socketAnalogueR = "R$xPosition|$yPosition,";
-                    // Reset joystick stick position
-                    joystickStick.x =
-                        joystickBase.x + joystickBase.width / 2 - joystickStick.width / 2
-                    joystickStick.y =
-                        joystickBase.y + joystickBase.height / 2 - joystickStick.height / 2
-                }
-            }
-        }
-        if (tag.contains("singleButton")) {
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    if(tag.contains("key_a"))
+//        val i = event.actionIndex
+//        val actionId = event.getPointerId(i)
+//        val touchX = event.getX(i)
+//        val touchY = event.getY(i)
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN,MotionEvent.ACTION_POINTER_DOWN -> {
+                when (v.id) {
+                    R.id.key_a -> {
+                        val button = findViewById<ImageButton>(R.id.key_a)
+                        button.setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)
                         socketMessage.add("1,")
-                    if(tag.contains("key_b"))
+                        Log.d("Play", "A Down")
+                    }
+                    R.id.key_b -> {
+                        val button = findViewById<ImageButton>(R.id.key_b)
+                        button.setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)
                         socketMessage.add("2,")
-                }
-
-                MotionEvent.ACTION_UP -> {
-                    if(tag.contains("key_a"))
-                        socketMessage.add("-1,")
-                    if(tag.contains("key_b"))
-                        socketMessage.add("-2,")
-                }
-                MotionEvent.ACTION_CANCEL -> {
-                    if(tag.contains("key_a"))
-                        socketMessage.add("-1,")
-                    if(tag.contains("key_b"))
-                        socketMessage.add("-2,")
+                        Log.d("Play", "B Down")
+                    }
+                    R.id.key_x -> {
+                        val button = findViewById<ImageButton>(R.id.key_x)
+                        button.setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)
+                        socketMessage.add("1,")
+                        Log.d("Play", "X Down")
+                    }
+                    R.id.key_y -> {
+                        val button = findViewById<ImageButton>(R.id.key_y)
+                        button.setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)
+                        socketMessage.add("2,")
+                        Log.d("Play", "Y Down")
+                    }
                 }
             }
-
+            MotionEvent.ACTION_UP,MotionEvent.ACTION_POINTER_UP -> {
+                when (v.id) {
+                    R.id.key_a -> {
+                        val button = findViewById<ImageButton>(R.id.key_a)
+                        button.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+                        socketMessage.add("-1,")
+                        Log.d("Play", "A Up")
+                    }
+                    R.id.key_b -> {
+                        val button = findViewById<ImageButton>(R.id.key_b)
+                        button.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+                        socketMessage.add("-2,")
+                        Log.d("Play", "B Up")
+                    }
+                    R.id.key_x -> {
+                        val button = findViewById<ImageButton>(R.id.key_x)
+                        button.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+                        socketMessage.add("-1,")
+                        Log.d("Play", "X Up")
+                    }
+                    R.id.key_y -> {
+                        val button = findViewById<ImageButton>(R.id.key_y)
+                        button.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+                        socketMessage.add("-2,")
+                        Log.d("Play", "Y Up")
+                    }
+                }
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                when (v.id) {
+                    R.id.key_a -> {
+                        val button = findViewById<ImageButton>(R.id.key_a)
+                        button.setColorFilter(Color.GREEN, PorterDuff.Mode.SRC_IN)
+                        socketMessage.add("-1,")
+                        Log.d("Play", "A Cancel Up")
+                    }
+                    R.id.key_b -> {
+                        val button = findViewById<ImageButton>(R.id.key_b)
+                        button.setColorFilter(Color.GREEN, PorterDuff.Mode.SRC_IN)
+                        socketMessage.add("-2,")
+                        Log.d("Play", "B Cancel Up")
+                    }
+                    R.id.key_x -> {
+                        val button = findViewById<ImageButton>(R.id.key_x)
+                        button.setColorFilter(Color.GREEN, PorterDuff.Mode.SRC_IN)
+                        socketMessage.add("-1,")
+                        Log.d("Play", "X Cancel Up")
+                    }
+                    R.id.key_y -> {
+                        val button = findViewById<ImageButton>(R.id.key_y)
+                        button.setColorFilter(Color.GREEN, PorterDuff.Mode.SRC_IN)
+                        socketMessage.add("-2,")
+                        Log.d("Play", "Y Cancel Up")
+                    }
+                }
+            }
         }
         return true
+    }
+
+    //Deprecated above API 30 so checking API.
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+
+        if (hasFocus) {
+            // Hide the status bar and navigation bar
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                window.insetsController?.apply {
+                    hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
+                    systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                }
+                window.setDecorFitsSystemWindows(false)
+                window.statusBarColor = Color.TRANSPARENT
+                window.navigationBarColor = Color.BLACK
+                window.insetsController?.hide(WindowInsets.Type.statusBars())
+            } else {
+                @Suppress("DEPRECATION")
+                window.setFlags(
+                    WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                    WindowManager.LayoutParams.FLAG_FULLSCREEN
+                )
+            }
+            playActivityMainContent.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+                override fun onGlobalLayout() {
+                    // Remove the listener to avoid multiple calls
+                    playActivityMainContent.viewTreeObserver.removeOnGlobalLayoutListener(this)
+
+                    val displayMetrics = DisplayMetrics()
+                    windowManager.defaultDisplay.getRealMetrics(displayMetrics)
+                    notchwidth = displayMetrics.widthPixels - playActivityMainContent.width
+
+                }
+            })
+
+        }
     }
 }
