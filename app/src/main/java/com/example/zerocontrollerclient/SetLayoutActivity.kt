@@ -305,7 +305,7 @@ class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
                 DragEvent.ACTION_DROP -> {
                     val button = event.localState as ImageButton
                     val parent = button.parent as ViewGroup
-                    val offset = event.clipData?.getItemAt(0)?.text?.toString()?.split(",")?.let { Point(it[0].toInt(), it[1].toInt()) }
+                    val offset = event.clipData?.getItemAt(0)?.text?.toString()?.split(",")?.let { Point(it[0].toInt(), it[1].toInt()) }!!
 
                     val index = iconList.indexOf(button)
                     if (index != -1) {
@@ -324,7 +324,7 @@ class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
                     parent.removeView(button)
 
                     val layoutParams = button.layoutParams as RelativeLayout.LayoutParams
-                    layoutParams.leftMargin = event.x.toInt() - offset!!.x
+                    layoutParams.leftMargin = event.x.toInt() - offset.x
                     layoutParams.topMargin = event.y.toInt() - offset.y
                     layoutParams.removeRule(RelativeLayout.BELOW)
                     layoutParams.removeRule(RelativeLayout.CENTER_HORIZONTAL)
