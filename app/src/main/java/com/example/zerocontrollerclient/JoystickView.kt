@@ -27,17 +27,45 @@ class JoystickView(context: Context, attrs: AttributeSet?) : View(context, attrs
     private var joystickY: Int = 0
     private var centerPoint = 50f
     private var maxDistanceFromCenter = 30f
-    private val paintStick1 = Paint().apply {
-        color = Color.RED
-        style = Paint.Style.FILL
-    }
-    private val paintStick2 = Paint().apply {
-        color = Color.WHITE
+    private val paintStick = Paint().apply {
         style = Paint.Style.FILL
     }
     var left = true
     private var actionId: Int? = null
     private var touchPoint: PointF? = null
+
+    private var isRunning = false
+    private var isTouching = false
+    var joystickInput = StringBuilder()
+
+    private val loggingThread = Thread {
+        while (isRunning) {
+            if (isTouching)
+                joystickInput.append("$joystickX $joystickY ")
+            try {
+                Thread.sleep(1000 / 24.toLong())
+            } catch (e: InterruptedException) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        isRunning = true
+        loggingThread.start()
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        isRunning = false
+        try {
+            loggingThread.join()
+        } catch (e: InterruptedException) {
+            e.printStackTrace()
+        }
+    }
+
 
     @SuppressLint("DrawAllocation")
     override fun onDraw(canvas: Canvas) {
@@ -87,28 +115,27 @@ class JoystickView(context: Context, attrs: AttributeSet?) : View(context, attrs
         rectR.lineTo(48.5f * scale, 44.5f * scale)
         rectR.close()
 
-        val cutout =Path()
         if(left) {
             touchPoint?.let {
                 val matrix = Matrix()
                 matrix.setTranslate(it.x - centerPoint, it.y - centerPoint)
-                cutout.addPath(circle)
-                cutout.op(rectL, Path.Op.DIFFERENCE)
-                cutout.transform(matrix)
-                canvas.drawPath(cutout, paintStick2)
-            } ?: run {
-                canvas.drawPath(circle, paintStick1)
+                circle.transform(matrix)
+                rectL.transform(matrix)
+                paintStick.color = Color.WHITE
+                canvas.drawPath(circle, paintStick)
+                paintStick.color = Color.BLACK
+                canvas.drawPath(rectL, paintStick)
             }
         } else {
             touchPoint?.let {
                 val matrix = Matrix()
                 matrix.setTranslate(it.x - centerPoint, it.y - centerPoint)
-                cutout.addPath(circle)
-                cutout.op(rectR, Path.Op.DIFFERENCE)
-                cutout.transform(matrix)
-                canvas.drawPath(cutout, paintStick2)
-            } ?: run {
-                canvas.drawPath(circle, paintStick1)
+                circle.transform(matrix)
+                rectR.transform(matrix)
+                paintStick.color = Color.WHITE
+                canvas.drawPath(circle, paintStick)
+                paintStick.color = Color.BLACK
+                canvas.drawPath(rectR, paintStick)
             }
         }
     }
@@ -122,6 +149,7 @@ class JoystickView(context: Context, attrs: AttributeSet?) : View(context, attrs
         when (event.actionMasked) {
 
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE, MotionEvent.ACTION_POINTER_DOWN -> {
+                isTouching = true
                 if(actionId == null || actionId == event.getPointerId(actionIndex)) {
                     touchPoint = if (distance <= maxDistanceFromCenter) {
                         PointF(touchX, touchY)
@@ -132,12 +160,14 @@ class JoystickView(context: Context, attrs: AttributeSet?) : View(context, attrs
                     joystickX = (((touchPoint!!.x - centerPoint) / maxDistanceFromCenter) * 32767).toInt().coerceIn(-32767, 32767)
                     joystickY = (((touchPoint!!.y - centerPoint) / maxDistanceFromCenter) * 32767).toInt().coerceIn(-32767, 32767)
                     actionId = event.getPointerId(actionIndex)
-                    Log.d("joy","$joystickX,$joystickY")
+//                    Log.d("joy","$joystickX,$joystickY")
                     invalidate()
                 }
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> {
+                isTouching = false
+                joystickInput.clear()
                 if (actionId == event.getPointerId(actionIndex)) {
                     touchPoint = PointF(centerPoint, centerPoint)
                     joystickX = 0

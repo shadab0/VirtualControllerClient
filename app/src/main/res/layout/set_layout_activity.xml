@@ -284,7 +284,7 @@
                 android:background="@null"
                 android:clickable="false"
                 android:focusable="false"
-                android:src="@mipmap/joystick_l_img"
+                android:src="@mipmap/key_joystick_l"
                 app:tint="@color/white"
                 tools:ignore="ContentDescription" />
 
@@ -297,7 +297,7 @@
                 android:background="@null"
                 android:clickable="false"
                 android:focusable="false"
-                android:src="@mipmap/joystick_r_img"
+                android:src="@mipmap/key_joystick_r"
                 app:tint="@color/white"
                 tools:ignore="ContentDescription" />
 

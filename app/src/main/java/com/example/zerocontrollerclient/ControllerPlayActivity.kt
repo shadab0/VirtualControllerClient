@@ -8,12 +8,9 @@ import android.graphics.PorterDuff
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
-import android.util.DisplayMetrics
 import android.util.Log
-import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewTreeObserver
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
@@ -33,11 +30,9 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
     private var socketAnalogueR = ""
     private var socketAnalogueL = ""
 
-    private var notchwidth = 0
     private var profile = ""
-    val values1 = arrayOf(0, 120, 180, 240, 450, 480)
-    val values2 = arrayOf(0, 7, 10, 14, 25, 27)
-    var currentIndex = 0
+//    val values1 = arrayOf(0, 120, 180, 240, 360, 480)
+//    var currentIndex = 0
 
 
     private lateinit var handler: Handler
@@ -49,6 +44,7 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
         profile = intent.getStringExtra(Intent.EXTRA_TEXT).toString()
         Toast.makeText(this,"Loaded $profile", Toast.LENGTH_SHORT).show()
         playActivityMainContent = findViewById(R.id.playActivityMainContent)
+
 
       /*  handler = Handler()
         handler.postDelayed(object : Runnable {
@@ -117,12 +113,11 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
 //            currentIndex++
 //            if(currentIndex<values1.size) {
 //                val layoutParams1 = RelativeLayout.LayoutParams(values1[currentIndex],values1[currentIndex])
-//                joystick.layoutParams = layoutParams1
-//                val layoutParams2 = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT,RelativeLayout.LayoutParams.MATCH_PARENT)
-//                layoutParams2.setMargins(values2[currentIndex],values2[currentIndex],values2[currentIndex],values2[currentIndex])
-//                joystickBase.layoutParams = layoutParams2
+//                joystickl.layoutParams = layoutParams1
+//
 //            }
-//            saveimage(joystick,"base")
+//            saveimage(joystickl,"joystick_l")
+//            saveimage(joystickr,"joystick_r")
 //        }
 
     }
@@ -217,7 +212,7 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
 //            bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
 //            outputStream.flush()
 //            outputStream.close()
-//            Toast.makeText(this, "Saved ${name}_${values1[currentIndex-1]}.png", Toast.LENGTH_SHORT).show()
+//            Log.d("img", "Saved ${name}_${values1[currentIndex-1]}.png")
 //        } catch (e: Exception) {
 //            e.printStackTrace()
 //        }
@@ -359,18 +354,6 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
                     WindowManager.LayoutParams.FLAG_FULLSCREEN
                 )
             }
-            playActivityMainContent.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
-                override fun onGlobalLayout() {
-                    // Remove the listener to avoid multiple calls
-                    playActivityMainContent.viewTreeObserver.removeOnGlobalLayoutListener(this)
-
-                    val displayMetrics = DisplayMetrics()
-                    windowManager.defaultDisplay.getRealMetrics(displayMetrics)
-                    notchwidth = displayMetrics.widthPixels - playActivityMainContent.width
-
-                }
-            })
-
         }
     }
 }

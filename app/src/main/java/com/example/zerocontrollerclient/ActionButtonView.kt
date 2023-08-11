@@ -21,11 +21,11 @@ class ActionButtonView(context: Context, attrs: AttributeSet?) : View(context, a
     private var previousPath: Path? = null
     private val activePaths: MutableMap<Int, Path> = mutableMapOf()
     private val pathPaint1 = Paint().apply {
-        color = Color.GREEN
+        color = Color.WHITE
         style = Paint.Style.STROKE
     }
     private val pathPaint = Paint().apply {
-        color = Color.GREEN
+        color = Color.WHITE
         style = Paint.Style.FILL
     }
     private val pathPaint2 = Paint().apply {

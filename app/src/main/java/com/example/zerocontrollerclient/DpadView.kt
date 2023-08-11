@@ -21,7 +21,7 @@ class DpadView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     private var previousPath: Path? = null
     private val activePaths: MutableMap<Int, Path> = mutableMapOf()
     private val pathPaint1 = Paint().apply {
-        color = Color.GREEN
+        color = Color.WHITE
         style = Paint.Style.FILL
     }
     private val pathPaint2 = Paint().apply {

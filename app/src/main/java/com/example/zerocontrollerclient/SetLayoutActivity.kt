@@ -2,10 +2,11 @@ package com.example.zerocontrollerclient
 
 import android.annotation.SuppressLint
 import android.content.ClipData
-import android.content.ClipDescription
 import android.content.Context
 import android.content.Intent
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Point
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import android.graphics.Rect
@@ -18,6 +19,7 @@ import android.view.DragEvent
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
+import android.view.View.OnTouchListener
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.view.WindowInsets
@@ -29,9 +31,12 @@ import android.widget.ScrollView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.hardware.display.DisplayManagerCompat
+import androidx.core.view.marginLeft
+import androidx.core.view.marginTop
 import androidx.drawerlayout.widget.DrawerLayout
 import kotlin.math.max
 import kotlin.math.min
+
 
 @Suppress("PrivatePropertyName")
 class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
@@ -72,8 +77,10 @@ class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
     private lateinit var scaleGestureDetector: ScaleGestureDetector
     private var scaleFactor = 1.0f
     private var profile = ""
+    private var overlappingView = ArrayList<Pair<ImageButton, ImageButton>>()
 
-    private var buttonList: MutableList<Pair<Pair<Pair<Int,Int>,Pair<Int,Int>>,Pair<Pair<Float,Float>,Pair<Int,Int>>>> = mutableListOf()
+
+    private var buttonList: MutableList<Pair<Pair<Pair<Int, Int>, Pair<Int, Int>>, Pair<Pair<Float, Float>, Pair<Int, Int>>>> = mutableListOf()
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -82,7 +89,7 @@ class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
         setContentView(R.layout.set_layout_activity)
 
         profile = intent.getStringExtra(Intent.EXTRA_TEXT).toString()
-        Toast.makeText(this,"Loaded $profile",Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Loaded $profile", Toast.LENGTH_SHORT).show()
 
         drawerLayout = findViewById(R.id.drawer_layout)
         drawer = findViewById(R.id.drawer)
@@ -102,7 +109,9 @@ class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
                 val width: Int
                 val height: Int
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    val displayContext = createDisplayContext(DisplayManagerCompat.getInstance(this@SetLayoutActivity).getDisplay(Display.DEFAULT_DISPLAY)!!)
+                    val displayContext = createDisplayContext(
+                        DisplayManagerCompat.getInstance(this@SetLayoutActivity).getDisplay(Display.DEFAULT_DISPLAY)!!
+                    )
                     width = displayContext.resources.displayMetrics.widthPixels
                     height = displayContext.resources.displayMetrics.heightPixels
                 } else {
@@ -127,7 +136,7 @@ class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
             }
         })
 
-      //  removebtn.visibility = View.INVISIBLE
+        //  removebtn.visibility = View.INVISIBLE
 
         drawerLayout.addDrawerListener(object : DrawerLayout.DrawerListener {
             override fun onDrawerSlide(drawerView: View, slideOffset: Float) {}
@@ -169,14 +178,14 @@ class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
         key_m4 = findViewById(R.id.key_m4)
         key_m4.tag = R.mipmap.key_m4
         key_joystick_l = findViewById(R.id.key_joystick_l)
-        key_joystick_l.tag = R.mipmap.joystick_l_img
+        key_joystick_l.tag = R.mipmap.key_joystick_l
         key_joystick_r = findViewById(R.id.key_joystick_r)
-        key_joystick_r.tag = R.mipmap.joystick_r_img
+        key_joystick_r.tag = R.mipmap.key_joystick_r
         key_dpad = findViewById(R.id.key_dpad)
         key_dpad.tag = R.mipmap.key_dpad
-        key_action_button =findViewById(R.id.key_action_button)
+        key_action_button = findViewById(R.id.key_action_button)
         key_action_button.tag = R.mipmap.key_action_button
-        key_circular_button =findViewById(R.id.key_circular_button)
+        key_circular_button = findViewById(R.id.key_circular_button)
         key_circular_button.tag = R.mipmap.key_circular_button
 
         iconList.add(key_a)
@@ -204,112 +213,101 @@ class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
 
         mainContent.setOnTouchListener(this)
         // add a long click listener to the buttons
-        key_a.setOnLongClickListener { dragButton(key_a) }
-        key_b.setOnLongClickListener { dragButton(key_b) }
-        key_x.setOnLongClickListener { dragButton(key_x) }
-        key_y.setOnLongClickListener { dragButton(key_y) }
-        key_lb.setOnLongClickListener { dragButton(key_lb) }
-        key_lt.setOnLongClickListener { dragButton(key_lt) }
-        key_rb.setOnLongClickListener { dragButton(key_rb) }
-        key_rt.setOnLongClickListener { dragButton(key_rt) }
-        key_start.setOnLongClickListener { dragButton(key_start) }
-        key_select.setOnLongClickListener { dragButton(key_select) }
-        key_lcenter.setOnLongClickListener { dragButton(key_lcenter) }
-        key_rcenter.setOnLongClickListener { dragButton(key_rcenter) }
-        key_m1.setOnLongClickListener { dragButton(key_m1) }
-        key_m2.setOnLongClickListener { dragButton(key_m2) }
-        key_m3.setOnLongClickListener { dragButton(key_m3) }
-        key_m4.setOnLongClickListener { dragButton(key_m4) }
-        key_joystick_l.setOnLongClickListener { dragButton(key_joystick_l) }
-        key_joystick_r.setOnLongClickListener { dragButton(key_joystick_r) }
-        key_dpad.setOnLongClickListener { dragButton(key_dpad) }
-        key_action_button.setOnLongClickListener { dragButton(key_action_button) }
-        key_circular_button.setOnLongClickListener { dragButton(key_circular_button) }
+        key_a.setOnLongClickListener { view -> dragButton(view, key_a) }
+        key_b.setOnLongClickListener { view -> dragButton(view, key_b) }
+        key_x.setOnLongClickListener { view -> dragButton(view, key_x) }
+        key_y.setOnLongClickListener { view -> dragButton(view, key_y) }
+        key_lb.setOnLongClickListener { view -> dragButton(view, key_lb) }
+        key_lt.setOnLongClickListener { view -> dragButton(view, key_lt) }
+        key_rb.setOnLongClickListener { view -> dragButton(view, key_rb) }
+        key_rt.setOnLongClickListener { view -> dragButton(view, key_rt) }
+        key_start.setOnLongClickListener { view -> dragButton(view, key_start) }
+        key_select.setOnLongClickListener { view -> dragButton(view, key_select) }
+        key_lcenter.setOnLongClickListener { view -> dragButton(view, key_lcenter) }
+        key_rcenter.setOnLongClickListener { view -> dragButton(view, key_rcenter) }
+        key_m1.setOnLongClickListener { view -> dragButton(view, key_m1) }
+        key_m2.setOnLongClickListener { view -> dragButton(view, key_m2) }
+        key_m3.setOnLongClickListener { view -> dragButton(view, key_m3) }
+        key_m4.setOnLongClickListener { view -> dragButton(view, key_m4) }
+        key_joystick_l.setOnLongClickListener { view -> dragButton(view, key_joystick_l) }
+        key_joystick_r.setOnLongClickListener { view -> dragButton(view, key_joystick_r) }
+        key_dpad.setOnLongClickListener { view -> dragButton(view, key_dpad) }
+        key_action_button.setOnLongClickListener { view -> dragButton(view, key_action_button) }
+        key_circular_button.setOnLongClickListener { view -> dragButton(view, key_circular_button) }
 
         scaleGestureDetector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
             override fun onScale(detector: ScaleGestureDetector): Boolean {
                 detector.let {
                     if (::lastClickedButton.isInitialized && !iconList.contains(lastClickedButton)) {
                         scaleFactor *= it.scaleFactor
-                        scaleFactor = max(0.5f, min(scaleFactor, 3f)) // Restrict scale factor between 1 and 5
+                        scaleFactor = max(0.7f, min(scaleFactor, 3f)) // Restrict scale factor between 1 and 5
                         lastClickedButton.scaleX = scaleFactor
                         lastClickedButton.scaleY = scaleFactor
+                        swapStaticButtons(lastClickedButton)
+                        if (!areViewsOverlapping(lastClickedButton)) {
+                            lastClickedButton.background = null
+                        }
                     }
                 }
                 return true
             }
         })
 
-       /* button1.setOnTouchListener { v, event ->
-            val scaleGestureDetector = ScaleGestureDetector(v.context, object : ScaleGestureDetector.OnScaleGestureListener {
-                var scaleFactor = 1.0f
-                override fun onScale(detector: ScaleGestureDetector): Boolean {
-                    scaleFactor *= detector.scaleFactor
-                    lastClickedButton.scaleX = scaleFactor
-                    lastClickedButton.scaleY = scaleFactor
-                    return true
-                }
-                override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
-                    // Return true to enable scaling
-                    return true
-                }
-                override fun onScaleEnd(detector: ScaleGestureDetector) {
-                    // Do something when scaling ends, if needed
-                }
-            })
+        /* button1.setOnTouchListener { v, event ->
+             val scaleGestureDetector = ScaleGestureDetector(v.context, object : ScaleGestureDetector.OnScaleGestureListener {
+                 var scaleFactor = 1.0f
+                 override fun onScale(detector: ScaleGestureDetector): Boolean {
+                     scaleFactor *= detector.scaleFactor
+                     lastClickedButton.scaleX = scaleFactor
+                     lastClickedButton.scaleY = scaleFactor
+                     return true
+                 }
+                 override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+                     // Return true to enable scaling
+                     return true
+                 }
+                 override fun onScaleEnd(detector: ScaleGestureDetector) {
+                     // Do something when scaling ends, if needed
+                 }
+             })
 
-            // Pass the touch event and the View object to the ScaleGestureDetector
-            scaleGestureDetector.onTouchEvent(event)
-            true
-        }*/
-   /*     staticContainer.setOnDragListener { _, event ->
+             // Pass the touch event and the View object to the ScaleGestureDetector
+             scaleGestureDetector.onTouchEvent(event)
+             true
+         }*/
+        /*     staticContainer.setOnDragListener { _, event ->
+                 when (event.action) {
+                     DragEvent.ACTION_DRAG_ENTERED -> {
+                         swipeStaticButtons(event.x, event.y)
+                         true
+                     }
+
+                     DragEvent.ACTION_DRAG_LOCATION -> {
+                         swipeStaticButtons(event.x, event.y)
+                         true
+                     }
+
+                     DragEvent.ACTION_DROP -> {
+                         swipeStaticButtons(event.x, event.y)
+                         true
+                     }
+
+                     else -> {
+                         // Ignore other events
+                         true
+                     }
+                 }
+
+             }*/
+
+        mainContent.setOnDragListener { _, event ->
             when (event.action) {
-                DragEvent.ACTION_DRAG_ENTERED -> {
-                    swipeStaticButtons(event.x, event.y)
-                    true
-                }
-
-                DragEvent.ACTION_DRAG_LOCATION -> {
-                    swipeStaticButtons(event.x, event.y)
-                    true
-                }
-
-                DragEvent.ACTION_DROP -> {
-                    swipeStaticButtons(event.x, event.y)
-                    true
-                }
-
-                else -> {
-                    // Ignore other events
-                    true
-                }
-            }
-
-        }*/
-
-        mainContent.setOnDragListener { v, event ->
-            when (event.action) {
-                DragEvent.ACTION_DRAG_ENTERED -> {
-                    swapStaticButtons(v)
-                   /* if (isButtonOverXIcon(event.x, event.y)) {
-                        removebtn.setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)
-                    }*/
-                    true
-                }
-                DragEvent.ACTION_DRAG_LOCATION -> {
-                    swapStaticButtons(v)
-                    /*if (isButtonOverXIcon(event.x, event.y)) {
-                        removebtn.setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)
-                    } else {
-                        removebtn.clearColorFilter()
-                    }*/
-                    true
-                }
                 DragEvent.ACTION_DROP -> {
                     val button = event.localState as ImageButton
                     val parent = button.parent as ViewGroup
+                    val offset = event.clipData?.getItemAt(0)?.text?.toString()?.split(",")?.let { Point(it[0].toInt(), it[1].toInt()) }
 
-                    val index=iconList.indexOf(button)
+                    val index = iconList.indexOf(button)
                     if (index != -1) {
                         iconList.removeAt(index)
                         if (iconList.size != index) {
@@ -325,31 +323,26 @@ class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
                     }
                     parent.removeView(button)
 
-
                     val layoutParams = button.layoutParams as RelativeLayout.LayoutParams
-                    layoutParams.leftMargin = event.x.toInt() - button.width / 2
-                    layoutParams.topMargin = event.y.toInt() - button.height / 2
+                    layoutParams.leftMargin = event.x.toInt() - offset!!.x
+                    layoutParams.topMargin = event.y.toInt() - offset.y
                     layoutParams.removeRule(RelativeLayout.BELOW)
                     layoutParams.removeRule(RelativeLayout.CENTER_HORIZONTAL)
                     button.layoutParams = layoutParams
                     mainContent.addView(button)
                     button.setOnClickListener { addButtonFilter(button) }
-                    // buttonList.add(Pair(buttonId, Pair(event.x, event.y)))
+                    swapStaticButtons(button)
+                    if (!areViewsOverlapping(button)) {
+                        button.background = null
+                    }
 
-                    swapStaticButtons(v)
 
-
-
-                 //   removebtn.visibility = View.INVISIBLE
-                  //  removebtn.clearColorFilter()
+                    //   removebtn.visibility = View.INVISIBLE
+                    //  removebtn.clearColorFilter()
 
                     true
                 }
-                DragEvent.ACTION_DRAG_ENDED -> {
-                  //  removebtn.visibility = View.INVISIBLE
-                  //  removebtn.clearColorFilter()
-                    true
-                }
+
                 else -> {
                     // Ignore other events
                     true
@@ -362,56 +355,68 @@ class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
 
         savebtn.setOnClickListener { onSaveLayout() }
 
-        removebtn.setOnClickListener{ onRemoveButton() }
+        removebtn.setOnClickListener { onRemoveButton() }
 
     }
 
-    private fun swapStaticButtons(v: View){
-        if (areViewsOverlapping(v)) {
-            Log.d("ontop","ontop")
-            //Toast.makeText(this, "ontop", Toast.LENGTH_SHORT).show()
+    private fun swapStaticButtons(button: ImageButton) {
+        if (checkOverlap(button, staticContainer)) {
             val staticLayout = staticContainer.layoutParams as RelativeLayout.LayoutParams
-           /* val staticParamsRemove = removebtn.layoutParams as RelativeLayout.LayoutParams
-            val staticParamsSave = savebtn.layoutParams as RelativeLayout.LayoutParams
-
-            if(x > (resources.displayMetrics.widthPixels / 2)) {
-            //    Toast.makeText(this, "ontop", Toast.LENGTH_SHORT).show()
-                staticParamsRemove.removeRule(RelativeLayout.ALIGN_PARENT_END)
-                staticParamsRemove.addRule(RelativeLayout.ALIGN_PARENT_START)
-                staticParamsSave.removeRule(RelativeLayout.ALIGN_PARENT_END)
-                staticParamsSave.addRule(RelativeLayout.ALIGN_PARENT_START)
-            }
-            else {
-            //    Toast.makeText(this, "ontop", Toast.LENGTH_SHORT).show()
-                staticParamsRemove.removeRule(RelativeLayout.ALIGN_PARENT_START)
-                staticParamsRemove.addRule(RelativeLayout.ALIGN_PARENT_END)
-                staticParamsSave.removeRule(RelativeLayout.ALIGN_PARENT_START)
-                staticParamsSave.addRule(RelativeLayout.ALIGN_PARENT_END)
-            }
-
-
-
-            removebtn.layoutParams = staticParamsRemove
-            savebtn.layoutParams = staticParamsSave*/
-
-
-            if(v.x > (resources.displayMetrics.widthPixels / 2)) {
+            if (button.marginLeft > (resources.displayMetrics.widthPixels / 2)) {
                 //    Toast.makeText(this, "ontop", Toast.LENGTH_SHORT).show()
                 staticLayout.leftMargin = 0
                 staticLayout.addRule(RelativeLayout.ALIGN_PARENT_START)
-            }
-            else {
+            } else {
                 //    Toast.makeText(this, "ontop", Toast.LENGTH_SHORT).show()
                 staticLayout.removeRule(RelativeLayout.ALIGN_PARENT_START)
                 staticLayout.leftMargin = position[0]
             }
+            staticContainer.requestLayout()
         }
+    }
+
+    private fun areViewsOverlapping(button: ImageButton): Boolean {
+        var overlapping = false
+        for (i in 0 until mainContent.childCount) {
+            val child = mainContent.getChildAt(i)
+            if (child is ImageButton && child != button) {
+                if (checkOverlap(button, child)) {
+                    if (!overlappingView.contains(Pair(button, child)) && !overlappingView.contains(Pair(child, button)))
+                        overlappingView.add(Pair(button, child))
+                    overlapping = true
+                } else {
+                    overlappingView.removeAll { pair ->
+                        (pair.first == button && pair.second == child) || (pair.first == child && pair.second == button)
+                    }
+                    child.background = null
+                }
+            }
+        }
+        for (viewPair in overlappingView) {
+            viewPair.first.setBackgroundColor(Color.parseColor("#40FF0000"))
+            viewPair.second.setBackgroundColor(Color.parseColor("#40FF0000"))
+        }
+        return overlapping
+    }
+
+    private fun checkOverlap(view1: View, view2: View): Boolean {
+        var viewRect1 = Rect(view1.marginLeft, view1.marginTop, view1.marginLeft + view1.width, view1.marginTop + view1.height)
+        val offsetX1 = (view1.width - (view1.width * view1.scaleX).toInt()) / 2
+        val offsetY1 = (view1.height - (view1.height * view1.scaleY).toInt()) / 2
+        viewRect1 = Rect(viewRect1.left + offsetX1, viewRect1.top + offsetY1, viewRect1.right - offsetX1, viewRect1.bottom - offsetY1)
+
+        var viewRect2 = Rect(view2.marginLeft, view2.marginTop, view2.marginLeft + view2.width, view2.marginTop + view2.height)
+        val offsetX2 = (view2.width - (view2.width * view2.scaleX).toInt()) / 2
+        val offsetY2 = (view2.height - (view2.height * view2.scaleY).toInt()) / 2
+        viewRect2 = Rect(viewRect2.left + offsetX2, viewRect2.top + offsetY2, viewRect2.right - offsetX2, viewRect2.bottom - offsetY2)
+
+        return viewRect1.intersect(viewRect2)
     }
 
     @SuppressLint("ClickableViewAccessibility")
     private fun onRemoveButton(): Boolean {
         try {
-            if(lastClickedButton.drawable?.colorFilter?.equals(PorterDuffColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)) == true) {
+            if (lastClickedButton.drawable?.colorFilter?.equals(PorterDuffColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)) == true) {
 
                 val layoutParams = RelativeLayout.LayoutParams(
                     lastClickedButton.width,
@@ -430,12 +435,28 @@ class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
                 lastClickedButton.isClickable = false
                 lastClickedButton.isFocusable = false
                 lastClickedButton.layoutParams = layoutParams
+                lastClickedButton.background = null
                 mainContent.removeView(lastClickedButton)
                 drawer.addView(lastClickedButton)
                 lastClickedButton.setOnClickListener(null)
                 iconList.add(lastClickedButton)
+                val uniqueViews = overlappingView.filter { pair ->
+                    pair.first == lastClickedButton || pair.second == lastClickedButton
+                }.flatMap { listOf(it.first, it.second) }.distinct()
+
+                overlappingView.removeAll { pair ->
+                    pair.first == lastClickedButton || pair.second == lastClickedButton
+                }
+                for (view in uniqueViews) {
+                    view.background = null
+                }
+                for (viewPair in overlappingView) {
+                    viewPair.first.setBackgroundColor(Color.parseColor("#40FF0000"))
+                    viewPair.second.setBackgroundColor(Color.parseColor("#40FF0000"))
+                }
             }
-        }catch (_: Exception){}
+        } catch (_: Exception) {
+        }
         return true
     }
 
@@ -446,7 +467,6 @@ class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
     }
 
     private fun removeButtonFilter() {
-     //   Toast.makeText(this, "remove", Toast.LENGTH_SHORT).show()
         for (i in 0 until mainContent.childCount) {
             val child = mainContent.getChildAt(i)
             if (child is ImageButton) {
@@ -468,7 +488,12 @@ class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
                 val buttonScaleY = child.scaleY
                 val buttonX = child.x.toInt()
                 val buttonY = child.y.toInt()
-                buttonList.add(Pair(Pair(Pair(buttonId,buttonSrc),Pair(buttonWidth,buttonHeight)),Pair(Pair(buttonScaleX,buttonScaleY),Pair(buttonX,buttonY))))
+                buttonList.add(
+                    Pair(
+                        Pair(Pair(buttonId, buttonSrc), Pair(buttonWidth, buttonHeight)),
+                        Pair(Pair(buttonScaleX, buttonScaleY), Pair(buttonX, buttonY))
+                    )
+                )
             }
         }
         saveButtonList(this)
@@ -490,6 +515,11 @@ class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
             editor.putFloat("button_${i}_scaleY", buttonList[i].second.first.second)
             editor.putInt("button_${i}_x", buttonList[i].second.second.first)
             editor.putInt("button_${i}_y", buttonList[i].second.second.second)
+        }
+        editor.putInt("overlapping_view_size", overlappingView.size)
+        overlappingView.forEachIndexed { index, pair ->
+            editor.putInt("overlapping_view_$index.first", pair.first.id)
+            editor.putInt("overlapping_view_$index.second", pair.second.id)
         }
         editor.apply()
     }
@@ -520,18 +550,27 @@ class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
             }
             drawer.removeView(findViewById(button.id))
             button.setImageResource(buttonInfo.first.first.second)
-            button.tag=buttonInfo.first.first.second
+            button.tag = buttonInfo.first.first.second
             button.scaleX = buttonInfo.second.first.first
             button.scaleY = buttonInfo.second.first.second
             button.background = null
             button.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
-            val layoutParams = RelativeLayout.LayoutParams(buttonInfo.first.second.first,buttonInfo.first.second.second)
-            layoutParams.leftMargin=buttonInfo.second.second.first
-            layoutParams.topMargin=buttonInfo.second.second.second
+            val layoutParams = RelativeLayout.LayoutParams(buttonInfo.first.second.first, buttonInfo.first.second.second)
+            layoutParams.leftMargin = buttonInfo.second.second.first
+            layoutParams.topMargin = buttonInfo.second.second.second
             button.layoutParams = layoutParams
             mainContent.addView(button)
-            button.setOnLongClickListener { dragButton(button) }
+            button.setOnLongClickListener { view -> dragButton(view, button) }
             button.setOnClickListener { addButtonFilter(button) }
+        }
+        val prefs = this.getSharedPreferences(profile, Context.MODE_PRIVATE)
+        val overlappingViewSize = prefs.getInt("overlapping_view_size", 0)
+        for (index in 0 until overlappingViewSize) {
+            val first = findViewById<ImageButton>(prefs.getInt("overlapping_view_$index.first", 0))
+            first.setBackgroundColor(Color.parseColor("#40FF0000"))
+            val second = findViewById<ImageButton>(prefs.getInt("overlapping_view_$index.second", 0))
+            second.setBackgroundColor(Color.parseColor("#40FF0000"))
+            overlappingView.add(Pair(first, second))
         }
         return true
     }
@@ -548,52 +587,45 @@ class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
             val buttonScaleY = prefs.getFloat("button_${i}_scaleY", 0f)
             val buttonX = prefs.getInt("button_${i}_x", 0)
             val buttonY = prefs.getInt("button_${i}_y", 0)
-            buttonList.add(Pair(Pair(Pair(buttonId,buttonSrc),Pair(buttonWidth,buttonHeight)),Pair(Pair(buttonScaleX,buttonScaleY),Pair(buttonX,buttonY))))
+            buttonList.add(
+                Pair(
+                    Pair(Pair(buttonId, buttonSrc), Pair(buttonWidth, buttonHeight)),
+                    Pair(Pair(buttonScaleX, buttonScaleY), Pair(buttonX, buttonY))
+                )
+            )
         }
     }
 
     // function to enable dragging of a button
-    private fun dragButton(button: ImageButton): Boolean {
+    @SuppressLint("ClickableViewAccessibility")
+    private fun dragButton(view: View, button: ImageButton): Boolean {
         addButtonFilter(button)
-        val item = ClipData.Item(button.tag as? String)
-        val dragData = ClipData(
-            button.tag as? CharSequence,
-            arrayOf(ClipDescription.MIMETYPE_TEXT_PLAIN),
-            item
-        )
+        view.setOnTouchListener(OnTouchListener { _, event ->
+            view.setOnTouchListener(null)
+            val touchX = event.x.toInt()
+            val touchY = event.y.toInt()
+            val offsetX = ((touchX * view.scaleX) - ((view.width * view.scaleX)/2 - view.width/2)).toInt()
+            val offsetY = ((touchY * view.scaleY) - ((view.height * view.scaleY)/2 - view.height/2)).toInt()
 
-        val shadowBuilder = View.DragShadowBuilder(button)
+            val shadowBuilder = object : View.DragShadowBuilder(view) {
+                override fun onProvideShadowMetrics(shadowSize: Point, shadowTouchPoint: Point) {
+                    val scaledWidth = (view.width * view.scaleX).toInt()
+                    val scaledHeight = (view.height * view.scaleY).toInt()
+                    shadowSize.set(scaledWidth, scaledHeight)
+                    shadowTouchPoint.set((touchX*view.scaleX).toInt(), (touchY*view.scaleY).toInt())
+                }
 
-        button.startDragAndDrop(
-            dragData, shadowBuilder, button, 0
-        )
+                override fun onDrawShadow(canvas: Canvas) {
+                    canvas.scale(view.scaleX, view.scaleY)
+                    view.draw(canvas)
+                }
+            }
+            val data = ClipData.newPlainText("offset", "${offsetX},${offsetY}")
+            button.startDragAndDrop(data, shadowBuilder, button, 0)
+            true
+        })
         //removebtn.visibility = View.VISIBLE
         return true
-    }
-
-    private fun areViewsOverlapping(x: Float, y: Float, view1: View): Boolean  {
-
-        var location = IntArray(2)
-        view1.getLocationOnScreen(location)
-        val rect1 = Rect(location[0],location[1],location[0]+view1.width,location[1]+view1.height)
-//        Log.d("rect1","rect1=$rect1")
-        staticContainer.getLocationOnScreen(location)
-        val rect2 = Rect(location[0],location[1],location[0]+staticContainer.width,location[1]+staticContainer.height)
-//        Log.d("rect2","rect2=$rect2")
-        return rect1.intersect(rect2)
-
-//        val location = IntArray(2)
-//        staticContainer.getLocationOnScreen(location)
-//       // Toast.makeText(this, "ontop"+location, Toast.LENGTH_SHORT).show()
-//        val xLeft = location[0]
-//        val xRight = xLeft + staticContainer.width
-//        val xTop = location[1]
-//        val xBottom = xTop + staticContainer.height
-//
-//        val touchX = x.toInt()
-//        val touchY = y.toInt()
-//
-//        return touchX in (xLeft + 1) until xRight && touchY > xTop && touchY < xBottom
     }
 
     //Deprecated above API 30 so checking API.
@@ -618,8 +650,6 @@ class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
                     WindowManager.LayoutParams.FLAG_FULLSCREEN
                 )
             }
-
-
         }
     }
 
@@ -628,24 +658,5 @@ class SetLayoutActivity : AppCompatActivity(), View.OnTouchListener {
         scaleGestureDetector.onTouchEvent(event)
         return true
     }
-
-    /*private class MyOnScaleGestureListener() : ScaleGestureDetector.SimpleOnScaleGestureListener() {
-
-        private var scaleFactor = 1.0f
-
-        override fun onScale(detector: ScaleGestureDetector): Boolean {
-            // Calculate the new scale factor based on the current scale factor and the detector's scale factor
-            scaleFactor *= detector?.scaleFactor ?: 1.0f
-
-            // Set the new scale factor on the button's layout params
-            val layoutParams = SetLayoutActivity().lastClickedButton.layoutParams as RelativeLayout.LayoutParams
-            layoutParams.width = (SetLayoutActivity().lastClickedButton.width * scaleFactor).toInt()
-            layoutParams.height = (SetLayoutActivity().lastClickedButton.height * scaleFactor).toInt()
-            SetLayoutActivity().lastClickedButton.layoutParams = layoutParams
-
-            // Return true to indicate that the event was handled
-            return true
-        }
-    }*/
 
 }

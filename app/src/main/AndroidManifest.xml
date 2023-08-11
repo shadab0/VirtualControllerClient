@@ -17,11 +17,17 @@
         android:windowFullscreen="true"
         tools:targetApi="33">
         <activity
+            android:name=".CreateMacroActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.ZeroControllerClient"
+            android:windowFullscreen="true" />
+        <activity
             android:name=".ControllerPlayActivity"
             android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.ZeroControllerClient"
-            android:windowFullscreen="true"/>
+            android:windowFullscreen="true" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
