@@ -9,9 +9,10 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PointF
 import android.util.AttributeSet
-import android.util.Log
 import android.view.MotionEvent
 import android.view.View
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.pow
@@ -30,21 +31,32 @@ class JoystickView(context: Context, attrs: AttributeSet?) : View(context, attrs
     private val paintStick = Paint().apply {
         style = Paint.Style.FILL
     }
-    var left = true
+    internal var left = true
     private var actionId: Int? = null
     private var touchPoint: PointF? = null
 
     private var isRunning = false
-    private var isTouching = false
-    var joystickInput = StringBuilder()
+    private var isMoving = false
+
+    interface JoystickListener {
+        fun onJoystickDownMacro(joystickX: Int, joystickY: Int)
+        fun onJoystickMoveMacro(joystickX: Int, joystickY: Int)
+        fun onJoystickUpMacro()
+    }
+
+    private var joystickListener: JoystickListener? = null
+
+    fun setJoystickListener(listener: JoystickListener) {
+        joystickListener = listener
+    }
 
     private val loggingThread = Thread {
         while (isRunning) {
-            if (isTouching)
-                joystickInput.append("$joystickX $joystickY ")
             try {
+                if (isMoving)
+                    joystickListener?.onJoystickMoveMacro(joystickX, joystickY)
                 Thread.sleep(1000 / 24.toLong())
-            } catch (e: InterruptedException) {
+            } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
@@ -65,7 +77,6 @@ class JoystickView(context: Context, attrs: AttributeSet?) : View(context, attrs
             e.printStackTrace()
         }
     }
-
 
     @SuppressLint("DrawAllocation")
     override fun onDraw(canvas: Canvas) {
@@ -145,12 +156,10 @@ class JoystickView(context: Context, attrs: AttributeSet?) : View(context, attrs
         val actionIndex = event.actionIndex
         val touchX = event.getX(actionIndex)
         val touchY = event.getY(actionIndex)
-        val distance = sqrt((touchX - centerPoint).toDouble().pow(2.0) + (touchY - centerPoint).toDouble().pow(2.0)).toFloat()
         when (event.actionMasked) {
-
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE, MotionEvent.ACTION_POINTER_DOWN -> {
-                isTouching = true
                 if(actionId == null || actionId == event.getPointerId(actionIndex)) {
+                    val distance = sqrt((touchX - centerPoint).toDouble().pow(2.0) + (touchY - centerPoint).toDouble().pow(2.0)).toFloat()
                     touchPoint = if (distance <= maxDistanceFromCenter) {
                         PointF(touchX, touchY)
                     } else {
@@ -158,25 +167,27 @@ class JoystickView(context: Context, attrs: AttributeSet?) : View(context, attrs
                         PointF(centerPoint + maxDistanceFromCenter * cos(angle), centerPoint + maxDistanceFromCenter * sin(angle))
                     }
                     joystickX = (((touchPoint!!.x - centerPoint) / maxDistanceFromCenter) * 32767).toInt().coerceIn(-32767, 32767)
-                    joystickY = (((touchPoint!!.y - centerPoint) / maxDistanceFromCenter) * 32767).toInt().coerceIn(-32767, 32767)
+                    joystickY = -(((touchPoint!!.y - centerPoint) / maxDistanceFromCenter) * 32767).toInt().coerceIn(-32767, 32767)
                     actionId = event.getPointerId(actionIndex)
-//                    Log.d("joy","$joystickX,$joystickY")
-                    invalidate()
+                    if (!isMoving) {
+                        joystickListener?.onJoystickDownMacro(joystickX, joystickY)
+                        isMoving = true
+                    }
                 }
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> {
-                isTouching = false
-                joystickInput.clear()
                 if (actionId == event.getPointerId(actionIndex)) {
+                    isMoving = false
                     touchPoint = PointF(centerPoint, centerPoint)
                     joystickX = 0
                     joystickY = 0
                     actionId = null
-                    invalidate()
+                    joystickListener?.onJoystickUpMacro()
                 }
             }
         }
+        invalidate()
         return true
     }
 }

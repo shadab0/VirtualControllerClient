@@ -3,8 +3,10 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
+        android:name=".MyApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -16,22 +18,26 @@
         android:theme="@style/Theme.ZeroControllerClient"
         android:windowFullscreen="true"
         tools:targetApi="33">
+        <service
+            android:name=".ConnectionMonitorService"
+            android:exported="false">
+        </service>
         <activity
             android:name=".CreateMacroActivity"
             android:exported="false"
-            android:screenOrientation="landscape"
+            android:screenOrientation="sensorLandscape"
             android:theme="@style/Theme.ZeroControllerClient"
             android:windowFullscreen="true" />
         <activity
             android:name=".ControllerPlayActivity"
             android:exported="false"
-            android:screenOrientation="landscape"
+            android:screenOrientation="sensorLandscape"
             android:theme="@style/Theme.ZeroControllerClient"
             android:windowFullscreen="true" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:screenOrientation="landscape"
+            android:screenOrientation="sensorLandscape"
             android:theme="@style/Theme.ZeroControllerClient"
             android:windowFullscreen="true">
             <intent-filter>
@@ -43,7 +49,7 @@
         <activity
             android:name=".SetLayoutActivity"
             android:exported="false"
-            android:screenOrientation="landscape"
+            android:screenOrientation="sensorLandscape"
             android:theme="@style/Theme.ZeroControllerClient"
             android:windowFullscreen="true" />
     </application>

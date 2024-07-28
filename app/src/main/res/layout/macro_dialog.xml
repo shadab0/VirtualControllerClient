@@ -17,7 +17,36 @@
         android:layout_marginBottom="10dp"
         android:orientation="vertical">
 
+        <RelativeLayout
+            android:id="@+id/macro_msg"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/macro_img"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:src="@mipmap/file_not_found"
+                app:tint="@color/white"
+                tools:ignore="ContentDescription" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@+id/macro_img"
+                android:layout_centerHorizontal="true"
+                android:layout_marginTop="13dp"
+                android:text="No Macros Found"
+                android:textColor="@color/white"
+                tools:ignore="HardcodedText" />
+
+        </RelativeLayout>
+
         <ScrollView
+            android:id="@+id/macro_container"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"

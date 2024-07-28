@@ -9,7 +9,6 @@ import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.Region
 import android.util.AttributeSet
-import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 
@@ -41,6 +40,16 @@ class ActionButtonView(context: Context, attrs: AttributeSet?) : View(context, a
     private val region3 = Region()
     private val region4 = Region()
     private val viewBounds: Rect = Rect()
+
+    interface ActionButtonListener {
+        fun onActionMacro(buttonId: String, wbutton: Int, isPressed: Byte)
+    }
+
+    private var actionButtonListener: ActionButtonListener? = null
+
+    fun setActionButtonListener(listener: ActionButtonListener) {
+        actionButtonListener = listener
+    }
 
     @SuppressLint("DrawAllocation")
     override fun onDraw(canvas: Canvas) {
@@ -183,22 +192,26 @@ class ActionButtonView(context: Context, attrs: AttributeSet?) : View(context, a
                 if (region1.contains(touchX.toInt(), touchY.toInt()) && !activePaths.containsValue(path1)) {
                     activePaths[actionId] = path1
                     activePaint1 = pathPaint2
-                    Log.d("DpadView", "Left Down=== $actionId")
+                    actionButtonListener?.onActionMacro("X Down", 0x4000, 0x01)
+                    //Log.d("DpadView", "Left Down=== $actionId")
                 }
                 if (region2.contains(touchX.toInt(), touchY.toInt()) && !activePaths.containsValue(path2)) {
                     activePaths[actionId] = path2
                     activePaint2 = pathPaint2
-                    Log.d("DpadView", "Top Down=== $actionId")
+                    actionButtonListener?.onActionMacro("Y Down", 32768, 0x01)
+                    //Log.d("DpadView", "Top Down=== $actionId")
                 }
                 if (region3.contains(touchX.toInt(), touchY.toInt()) && !activePaths.containsValue(path3)) {
                     activePaths[actionId] = path3
                     activePaint3 = pathPaint2
-                    Log.d("DpadView", "Right Down=== $actionId")
+                    actionButtonListener?.onActionMacro("B Down", 0x2000, 0x01)
+                    //Log.d("DpadView", "Right Down=== $actionId")
                 }
                 if (region4.contains(touchX.toInt(), touchY.toInt()) && !activePaths.containsValue(path4)) {
                     activePaths[actionId] = path4
                     activePaint4 = pathPaint2
-                    Log.d("DpadView", "Bottom Down=== $actionId")
+                    actionButtonListener?.onActionMacro("A Down", 0x1000, 0x01)
+                    //Log.d("DpadView", "Bottom Down=== $actionId")
                 }
                 previousPath = activePaths[actionId]
             }
@@ -213,28 +226,32 @@ class ActionButtonView(context: Context, attrs: AttributeSet?) : View(context, a
                     activePaths[actionId]=path1
                     previousPath = path1
                     activePaint1 = pathPaint2
-                    Log.d("DpadView", "moving left=== $actionId")
+                    actionButtonListener?.onActionMacro("X Down", 0x4000, 0x01)
+                    //Log.d("DpadView", "moving left=== $actionId")
                 }
                 if (region2.contains(touchX.toInt(), touchY.toInt()) && previousPath != path2) {
                     actionUp(actionId)
                     activePaths[actionId]=path2
                     previousPath = path2
                     activePaint2 = pathPaint2
-                    Log.d("DpadView", "moving top=== $actionId")
+                    actionButtonListener?.onActionMacro("Y Down", 32768, 0x01)
+                    //Log.d("DpadView", "moving top=== $actionId")
                 }
                 if (region3.contains(touchX.toInt(), touchY.toInt()) && previousPath != path3) {
                     actionUp(actionId)
                     activePaths[actionId]=path3
                     previousPath = path3
                     activePaint3 = pathPaint2
-                    Log.d("DpadView", "moving right=== $actionId")
+                    actionButtonListener?.onActionMacro("B Down", 0x2000, 0x01)
+                    //Log.d("DpadView", "moving right=== $actionId")
                 }
                 if (region4.contains(touchX.toInt(), touchY.toInt()) && previousPath != path4) {
                     actionUp(actionId)
                     activePaths[actionId]=path4
                     previousPath = path4
                     activePaint4 = pathPaint2
-                    Log.d("DpadView", "moving bottom=== $actionId")
+                    actionButtonListener?.onActionMacro("A Down", 0x1000, 0x01)
+                    //Log.d("DpadView", "moving bottom=== $actionId")
                 }
             }
 
@@ -247,6 +264,10 @@ class ActionButtonView(context: Context, attrs: AttributeSet?) : View(context, a
                 activePaint2 = pathPaint1
                 activePaint3 = pathPaint1
                 activePaint4 = pathPaint1
+                actionButtonListener?.onActionMacro("X Cancel", 0x0000, 0x00)
+                actionButtonListener?.onActionMacro("Y Cancel", 0x0000, 0x00)
+                actionButtonListener?.onActionMacro("B Cancel", 0x0000, 0x00)
+                actionButtonListener?.onActionMacro("A Cancel", 0x0000, 0x00)
                 activePaths.clear()
             }
         }
@@ -255,22 +276,26 @@ class ActionButtonView(context: Context, attrs: AttributeSet?) : View(context, a
     }
 
     private fun actionUp(actionId: Int){
-        Log.d("DpadView", "UP=== $actionId")
+        //Log.d("DpadView", "UP=== $actionId")
         if (activePaths[actionId] == path1) {
             activePaint1 = pathPaint1
-            Log.d("DpadView", "Left Up $actionId")
+            actionButtonListener?.onActionMacro("X Up", 0x4000, 0x00)
+            //Log.d("DpadView", "Left Up $actionId")
         }
         if (activePaths[actionId] == path2) {
             activePaint2 = pathPaint1
-            Log.d("DpadView", "Top Up $actionId")
+            actionButtonListener?.onActionMacro("Y Up", 32768, 0x00)
+            //Log.d("DpadView", "Top Up $actionId")
         }
         if (activePaths[actionId] == path3) {
             activePaint3 = pathPaint1
-            Log.d("DpadView", "Right Up $actionId")
+            actionButtonListener?.onActionMacro("B Up", 0x2000, 0x00)
+            //Log.d("DpadView", "Right Up $actionId")
         }
         if (activePaths[actionId] == path4) {
             activePaint4 = pathPaint1
-            Log.d("DpadView", "Bottom Up $actionId")
+            actionButtonListener?.onActionMacro("A Up", 0x1000, 0x00)
+            //Log.d("DpadView", "Bottom Up $actionId")
         }
         activePaths.remove(actionId)
     }

@@ -76,6 +76,16 @@ class CircularActionButtonView(context: Context, attrs: AttributeSet?) : View(co
     private val region4 = Region()
     private val viewBounds: Rect = Rect()
 
+    interface CircularButtonListener {
+        fun onCircularMacro(buttonId: String, wbutton: Int, isPressed: Byte)
+    }
+
+    private var circularButtonListener: CircularButtonListener? = null
+
+    fun setCircularButtonListener(listener: CircularButtonListener) {
+        circularButtonListener = listener
+    }
+
     @SuppressLint("DrawAllocation")
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
@@ -427,25 +437,25 @@ class CircularActionButtonView(context: Context, attrs: AttributeSet?) : View(co
                     activePaths[actionId] = path1
                     activePaint1 = pathDownPaint1
                     activeiconPaint1 = pathiconDownPaint1
-                    Log.d("DpadView", "Left Down=== $actionId")
+                    circularButtonListener?.onCircularMacro("Left Down", 0x4000, 0x01)
                 }
                 if (region2.contains(touchX.toInt(), touchY.toInt()) && !activePaths.containsValue(path2)) {
                     activePaths[actionId] = path2
                     activePaint2 = pathDownPaint2
                     activeiconPaint2 = pathiconDownPaint2
-                    Log.d("DpadView", "Top Down=== $actionId")
+                    circularButtonListener?.onCircularMacro("Top Down", 32768, 0x01)
                 }
                 if (region3.contains(touchX.toInt(), touchY.toInt()) && !activePaths.containsValue(path3)) {
                     activePaths[actionId] = path3
                     activePaint3 = pathDownPaint3
                     activeiconPaint3 = pathiconDownPaint3
-                    Log.d("DpadView", "Right Down=== $actionId")
+                    circularButtonListener?.onCircularMacro("Right Down", 0x2000, 0x01)
                 }
                 if (region4.contains(touchX.toInt(), touchY.toInt()) && !activePaths.containsValue(path4)) {
                     activePaths[actionId] = path4
                     activePaint4 = pathDownPaint4
                     activeiconPaint4 = pathiconDownPaint4
-                    Log.d("DpadView", "Bottom Down=== $actionId")
+                    circularButtonListener?.onCircularMacro("Bottom Down", 0x1000, 0x01)
                 }
                 previousPath = activePaths[actionId]
             }
@@ -461,7 +471,7 @@ class CircularActionButtonView(context: Context, attrs: AttributeSet?) : View(co
                     previousPath = path1
                     activePaint1 = pathDownPaint1
                     activeiconPaint1 = pathiconDownPaint1
-                    Log.d("DpadView", "moving left=== $actionId")
+                    circularButtonListener?.onCircularMacro("Left Down", 0x4000, 0x01)
                 }
                 if (region2.contains(touchX.toInt(), touchY.toInt()) && previousPath != path2) {
                     actionUp(actionId)
@@ -469,7 +479,7 @@ class CircularActionButtonView(context: Context, attrs: AttributeSet?) : View(co
                     previousPath = path2
                     activePaint2 = pathDownPaint2
                     activeiconPaint2 = pathiconDownPaint2
-                    Log.d("DpadView", "moving top=== $actionId")
+                    circularButtonListener?.onCircularMacro("Top Down", 32768, 0x01)
                 }
                 if (region3.contains(touchX.toInt(), touchY.toInt()) && previousPath != path3) {
                     actionUp(actionId)
@@ -477,7 +487,7 @@ class CircularActionButtonView(context: Context, attrs: AttributeSet?) : View(co
                     previousPath = path3
                     activePaint3 = pathDownPaint3
                     activeiconPaint3 = pathiconDownPaint3
-                    Log.d("DpadView", "moving right=== $actionId")
+                    circularButtonListener?.onCircularMacro("Right Down", 0x2000, 0x01)
                 }
                 if (region4.contains(touchX.toInt(), touchY.toInt()) && previousPath != path4) {
                     actionUp(actionId)
@@ -485,7 +495,7 @@ class CircularActionButtonView(context: Context, attrs: AttributeSet?) : View(co
                     previousPath = path4
                     activePaint4 = pathDownPaint4
                     activeiconPaint4 = pathiconDownPaint4
-                    Log.d("DpadView", "moving bottom=== $actionId")
+                    circularButtonListener?.onCircularMacro("Bottom Down", 0x1000, 0x01)
                 }
             }
 
@@ -502,6 +512,10 @@ class CircularActionButtonView(context: Context, attrs: AttributeSet?) : View(co
                 activeiconPaint2 = pathiconUpPaint2
                 activeiconPaint3 = pathiconUpPaint3
                 activeiconPaint4 = pathiconUpPaint4
+                circularButtonListener?.onCircularMacro("Left Cancel", 0x0000, 0x00)
+                circularButtonListener?.onCircularMacro("Top Cancel", 0x0000, 0x00)
+                circularButtonListener?.onCircularMacro("Right Cancel", 0x0000, 0x00)
+                circularButtonListener?.onCircularMacro("Bottom Cancel", 0x0000, 0x00)
                 activePaths.clear()
             }
         }
@@ -510,26 +524,25 @@ class CircularActionButtonView(context: Context, attrs: AttributeSet?) : View(co
     }
 
     private fun actionUp(actionId: Int){
-        Log.d("DpadView", "UP===$actionId")
         if (activePaths[actionId] == path1) {
             activePaint1 = pathUpPaint1
             activeiconPaint1 = pathiconUpPaint1
-            Log.d("DpadView", "Left Up $actionId")
+            circularButtonListener?.onCircularMacro("Left Up", 0x4000, 0x00)
         }
         if (activePaths[actionId] == path2) {
             activePaint2 = pathUpPaint2
             activeiconPaint2 = pathiconUpPaint2
-            Log.d("DpadView", "Top Up $actionId")
+            circularButtonListener?.onCircularMacro("Top Up", 32768, 0x00)
         }
         if (activePaths[actionId] == path3) {
             activePaint3 = pathUpPaint3
             activeiconPaint3 = pathiconUpPaint3
-            Log.d("DpadView", "Right Up $actionId")
+            circularButtonListener?.onCircularMacro("Right Up", 0x2000, 0x00)
         }
         if (activePaths[actionId] == path4) {
             activePaint4 = pathUpPaint4
             activeiconPaint4 = pathiconUpPaint4
-            Log.d("DpadView", "Bottom Up $actionId")
+            circularButtonListener?.onCircularMacro("Bottom Up", 0x1000, 0x00)
         }
         activePaths.remove(actionId)
     }
