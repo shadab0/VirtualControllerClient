@@ -29,6 +29,12 @@
             android:theme="@style/Theme.ZeroControllerClient"
             android:windowFullscreen="true" />
         <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.ZeroControllerClient"
+            android:windowFullscreen="true" />
+        <activity
             android:name=".ControllerPlayActivity"
             android:exported="false"
             android:screenOrientation="sensorLandscape"

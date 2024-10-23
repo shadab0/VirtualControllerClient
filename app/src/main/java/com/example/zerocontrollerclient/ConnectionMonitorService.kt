@@ -25,7 +25,7 @@ class ConnectionMonitorService : Service() {
     }
 
     private fun startMonitoring() {
-        timer.scheduleAtFixedRate(object : TimerTask() {
+        timer.schedule(object : TimerTask() {
             override fun run() {
                 try {
                     outputStream?.write(test)?.also { outputStream!!.flush() }

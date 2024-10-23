@@ -216,6 +216,32 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
 
     @SuppressLint("ClickableViewAccessibility", "InflateParams")
     private fun onLoadLayout(buttonList: MutableList<Pair<Pair<Pair<Int, Int>, Pair<Int, Int>>, Pair<Pair<Float, Float>, Pair<Int, Int>>>>) {
+        if (this.getSharedPreferences("selected_macros", Context.MODE_PRIVATE).getBoolean("aim_touch", false)) {
+            val aimTouchView = AimTouchView(this, null)
+            val layoutParams = RelativeLayout.LayoutParams(resources.displayMetrics.widthPixels / 2, resources.displayMetrics.heightPixels)
+            layoutParams.addRule(RelativeLayout.ALIGN_PARENT_END, RelativeLayout.TRUE)
+            aimTouchView.layoutParams = layoutParams
+            playActivityMainContent.addView(aimTouchView)
+            aimTouchView.setAimTouchListener(object : AimTouchView.AimTouchListener {
+                override fun onAimTouchMoveMacro(aimTouchX: Int, aimTouchY: Int) {
+                    if (isRecording)
+                        macro_data.append("${delayTime()},R $aimTouchX $aimTouchY,")
+                    if (!isMacro) {
+                        val byteArray = Gamepad(Rx = aimTouchX.toShort(), Ry = aimTouchY.toShort(), isPressed = 0x01, isJoystick = 0x02)
+                        sendData(byteArray)
+                    }
+                }
+
+                override fun onAimTouchUpMacro() {
+                    if (isRecording)
+                        macro_data.append("${delayTime()}|R0 0|")
+                    if (!isMacro) {
+                        val byteArray = Gamepad(isPressed = 0x01, isJoystick = 0x02)
+                        sendData(byteArray)
+                    }
+                }
+            })
+        }
         for (buttonInfo in buttonList) {
             when (buttonInfo.first.first.first) {
                 R.id.key_joystick_l -> {

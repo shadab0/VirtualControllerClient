@@ -11,8 +11,6 @@ import android.graphics.PointF
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.pow

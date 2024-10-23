@@ -12,9 +12,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -60,7 +57,6 @@ import java.util.regex.Pattern
 class MainActivity : AppCompatActivity() {
     private lateinit var outputStream: OutputStream
     private var discoverySocket: DatagramSocket? = null
-    private var vibrate = true
     internal lateinit var textView: TextView
     private lateinit var sharedPrefs: SharedPreferences
 
@@ -75,33 +71,9 @@ class MainActivity : AppCompatActivity() {
         textView = findViewById(R.id.textView)
         sharedPrefs = getSharedPreferences("selected_macros", Context.MODE_PRIVATE)
         val editor = sharedPrefs.edit()
-        vibrate = sharedPrefs.getBoolean("vibrate", true)
-        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vibratorManager: VibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-            vibratorManager.defaultVibrator
-        } else
-            getSystemService(VIBRATOR_SERVICE) as Vibrator
-        val vibrateBtn = findViewById<ImageButton>(R.id.vibration)
-        if (vibrate)
-            vibrateBtn.setImageResource(R.mipmap.vibrate)
-        else
-            vibrateBtn.setImageResource(R.mipmap.vibrate_off)
-        vibrateBtn.setOnClickListener {
-            vibrate = !vibrate
-            if (vibrate) {
-                vibrateBtn.setImageResource(R.mipmap.vibrate)
-                editor.putBoolean("vibrate", true)
-                if (vibrator.hasVibrator()) {
-                    if (Build.VERSION.SDK_INT >= 26)
-                        vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 0, 0, 22), -1))
-                    else
-                        vibrator.vibrate(22)
-                }
-            } else {
-                vibrateBtn.setImageResource(R.mipmap.vibrate_off)
-                editor.putBoolean("vibrate", false)
-            }
-            editor.apply()
+
+        findViewById<ImageButton>(R.id.settings).setOnClickListener{
+            startActivity(Intent(this, SettingsActivity::class.java))
         }
 
         findViewById<Button>(R.id.set_layout).setOnClickListener{
