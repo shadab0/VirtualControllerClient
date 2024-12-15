@@ -450,23 +450,23 @@ class MainActivity : AppCompatActivity() {
                 val socket = Socket(serverIp, serverPort)
                 outputStream = socket.getOutputStream()
                 SharedObject.setSocketAndOutputStream(socket, outputStream)
-                val m1 = File(applicationContext.dataDir, "macros/${sharedPrefs.getString("M1", "None")}.bin")
-                    .takeIf { it.exists() }?.readBytes()
-                val m2 = File(applicationContext.dataDir, "macros/${sharedPrefs.getString("M2", "None")}.bin")
-                    .takeIf { it.exists() }?.readBytes()
-                val m3 = File(applicationContext.dataDir, "macros/${sharedPrefs.getString("M3", "None")}.bin")
-                    .takeIf { it.exists() }?.readBytes()
-                val m4 = File(applicationContext.dataDir, "macros/${sharedPrefs.getString("M4", "None")}.bin")
-                    .takeIf { it.exists() }?.readBytes()
-                val size = ByteBuffer.allocate(16).order(ByteOrder.LITTLE_ENDIAN).putInt(m1?.size ?: 1).putInt(m2?.size ?: 1).putInt(m3?.size ?: 1).putInt(m4?.size ?: 1)
-                    .array()
-                outputStream.write(size).also { outputStream.flush() }
-                for (m in arrayOf(m1, m2, m3, m4)) {
-                    if (m != null)
-                        outputStream.write(m).also { outputStream.flush() }
-                    else
-                        outputStream.write(0x00).also { outputStream.flush() }
-                }
+//                val m1 = File(applicationContext.dataDir, "macros/${sharedPrefs.getString("M1", "None")}.bin")
+//                    .takeIf { it.exists() }?.readBytes()
+//                val m2 = File(applicationContext.dataDir, "macros/${sharedPrefs.getString("M2", "None")}.bin")
+//                    .takeIf { it.exists() }?.readBytes()
+//                val m3 = File(applicationContext.dataDir, "macros/${sharedPrefs.getString("M3", "None")}.bin")
+//                    .takeIf { it.exists() }?.readBytes()
+//                val m4 = File(applicationContext.dataDir, "macros/${sharedPrefs.getString("M4", "None")}.bin")
+//                    .takeIf { it.exists() }?.readBytes()
+//                val size = ByteBuffer.allocate(17).order(ByteOrder.LITTLE_ENDIAN).putInt(m1?.size ?: 1).putInt(m2?.size ?: 1).putInt(m3?.size ?: 1).putInt(m4?.size ?: 1)
+//                    .array()
+//                outputStream.write(size).also { outputStream.flush() }
+//                for (m in arrayOf(m1, m2, m3, m4)) {
+//                    if (m != null)
+//                        outputStream.write(m).also { outputStream.flush() }
+//                    else
+//                        outputStream.write(0x00).also { outputStream.flush() }
+//                }
                 withContext(Dispatchers.Main) {
                     startService(Intent(this@MainActivity, ConnectionMonitorService::class.java))
                     dialog.dismiss()

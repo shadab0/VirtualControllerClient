@@ -8,6 +8,7 @@ import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -56,6 +57,9 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
     private val outputStream = SharedObject.getOutputStream()
     private val coroutinePoolSize = 1 // Number of worker coroutines
     private val dataChannel = Channel<ByteArray>(Channel.UNLIMITED)
+
+    private val handler = Handler()
+    private val isTouching = mutableMapOf<Int, Boolean>()
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -407,6 +411,7 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
                     button.layoutParams = layoutParams
                     playActivityMainContent.addView(button)
                     button.setOnTouchListener(this)
+                    //setupButton(button)
                 }
             }
         }
@@ -528,8 +533,8 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
         }
     }
 
-    private fun Gamepad(wbutton: Int = 0, LT: UByte = 0u, RT: UByte = 0u, Lx: Short = 0, Ly: Short = 0, Rx: Short = 0, Ry: Short = 0, isPressed: Byte = 0, isDpad: Byte = 0, isJoystick: Byte = 0, macro: Byte = 0): ByteArray {
-        val data = ByteBuffer.allocate(16).order(ByteOrder.LITTLE_ENDIAN).apply {
+    private fun Gamepad(wbutton: Int = 0, LT: UByte = 0u, RT: UByte = 0u, Lx: Short = 0, Ly: Short = 0, Rx: Short = 0, Ry: Short = 0, isPressed: Byte = 0, isDpad: Byte = 0, isJoystick: Byte = 0, macro: Byte = 0, keyboard: Byte = 0): ByteArray {
+        val data = ByteBuffer.allocate(17).order(ByteOrder.LITTLE_ENDIAN).apply {
             put(byteArrayOf((wbutton and 0xFF).toByte(), ((wbutton shr 8) and 0xFF).toByte()))
             put(LT.toByte())
             put(RT.toByte())
@@ -541,6 +546,7 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
             put(isDpad)
             put(isJoystick)
             put(macro)
+            put(keyboard)
         }.array()
         return data
     }
@@ -554,6 +560,137 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
                 when (v.id) {
+
+                    R.id.v_key_a -> {
+                        isTouching[v.id] = true
+                        val button = findViewById<ImageButton>(R.id.v_key_a)
+                        button.setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)
+                        if (isRecording)
+                            macro_data.append("|${delayTime()}|A Down|")
+                        if (!isMacro) {
+                            val byteArray = Gamepad(wbutton = 0x0041, isPressed = 0x01, keyboard = 0x01)
+                            sendData(byteArray)
+                        }
+                        v.postDelayed({
+                            startLoop(v.id, 0x0041)
+                        }, 500)
+                        vibrate()
+
+                    }
+
+                    R.id.v_key_b -> {
+                        isTouching[v.id] = true
+                        val button = findViewById<ImageButton>(R.id.v_key_b)
+                        button.setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)
+                        if (isRecording)
+                            macro_data.append("|${delayTime()}|A Down|")
+                        if (!isMacro) {
+                            val byteArray = Gamepad(wbutton = 0x0042, isPressed = 0x01, keyboard = 0x01)
+                            sendData(byteArray)
+                        }
+                        v.postDelayed({
+                            startLoop(v.id, 0x0042)
+                        }, 500)
+                        vibrate()
+
+                    }
+                    R.id.v_key_c -> {
+                        isTouching[v.id] = true
+                        val button = findViewById<ImageButton>(R.id.v_key_c)
+                        button.setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)
+                        if (isRecording)
+                            macro_data.append("|${delayTime()}|A Down|")
+                        if (!isMacro) {
+                            val byteArray = Gamepad(wbutton = 0x0043, isPressed = 0x01, keyboard = 0x01)
+                            sendData(byteArray)
+                        }
+                        v.postDelayed({
+                            startLoop(v.id, 0x0043)
+                        }, 500)
+                        vibrate()
+
+                    }
+                    R.id.v_key_d -> {
+                        isTouching[v.id] = true
+                        val button = findViewById<ImageButton>(R.id.v_key_d)
+                        button.setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)
+                        if (isRecording)
+                            macro_data.append("|${delayTime()}|A Down|")
+                        if (!isMacro) {
+                            val byteArray = Gamepad(wbutton = 0x0044, isPressed = 0x01, keyboard = 0x01)
+                            sendData(byteArray)
+                        }
+                        v.postDelayed({
+                            startLoop(v.id, 0x0044)
+                        }, 500)
+                        vibrate()
+
+                    }
+                    R.id.v_key_e -> {
+                        isTouching[v.id] = true
+                        val button = findViewById<ImageButton>(R.id.v_key_e)
+                        button.setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)
+                        if (isRecording)
+                            macro_data.append("|${delayTime()}|A Down|")
+                        if (!isMacro) {
+                            val byteArray = Gamepad(wbutton = 0x0045, isPressed = 0x01, keyboard = 0x01)
+                            sendData(byteArray)
+                        }
+                        v.postDelayed({
+                            startLoop(v.id, 0x0045)
+                        }, 500)
+                        vibrate()
+
+                    }
+                    R.id.v_key_f -> {
+                        isTouching[v.id] = true
+                        val button = findViewById<ImageButton>(R.id.v_key_f)
+                        button.setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)
+                        if (isRecording)
+                            macro_data.append("|${delayTime()}|A Down|")
+                        if (!isMacro) {
+                            val byteArray = Gamepad(wbutton = 0x0046, isPressed = 0x01, keyboard = 0x01)
+                            sendData(byteArray)
+                        }
+                        v.postDelayed({
+                            startLoop(v.id, 0x0046)
+                        }, 500)
+                        vibrate()
+
+                    }
+                    R.id.v_key_g -> {
+                        isTouching[v.id] = true
+                        val button = findViewById<ImageButton>(R.id.v_key_g)
+                        button.setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)
+                        if (isRecording)
+                            macro_data.append("|${delayTime()}|A Down|")
+                        if (!isMacro) {
+                            val byteArray = Gamepad(wbutton = 0x0047, isPressed = 0x01, keyboard = 0x01)
+                            sendData(byteArray)
+                        }
+                        v.postDelayed({
+                            startLoop(v.id, 0x0047)
+                        }, 500)
+                        vibrate()
+
+                    }
+                    R.id.v_key_h -> {
+                        isTouching[v.id] = true
+                        val button = findViewById<ImageButton>(R.id.v_key_h)
+                        button.setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)
+                        if (isRecording)
+                            macro_data.append("|${delayTime()}|A Down|")
+                        if (!isMacro) {
+                            val byteArray = Gamepad(wbutton = 0x0048, isPressed = 0x01, keyboard = 0x01)
+                            sendData(byteArray)
+                        }
+                        v.postDelayed({
+                            startLoop(v.id, 0x0048)
+                        }, 500)
+                        vibrate()
+
+                    }
+
                     R.id.key_a -> {
                         val button = findViewById<ImageButton>(R.id.key_a)
                         button.setColorFilter(Color.RED, PorterDuff.Mode.SRC_IN)
@@ -746,6 +883,110 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> {
                 when (v.id) {
+                    R.id.v_key_a -> {
+                        isTouching[v.id] = false
+                        v.removeCallbacks(null);
+                        val button = findViewById<ImageButton>(R.id.v_key_a)
+                        button.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+                        if (isRecording)
+                            macro_data.append("|${delayTime()}|A Up|")
+                        if (!isMacro) {
+                            val byteArray = Gamepad(wbutton = 0x0041, isPressed = 0x00, keyboard = 0x01)
+                            sendData(byteArray)
+                        }
+                        Log.i("up", "a")
+                    }
+                    R.id.v_key_b -> {
+                        isTouching[v.id] = false
+                        v.removeCallbacks(null);
+                        val button = findViewById<ImageButton>(R.id.v_key_b)
+                        button.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+                        if (isRecording)
+                            macro_data.append("|${delayTime()}|A Up|")
+                        if (!isMacro) {
+                            val byteArray = Gamepad(wbutton = 0x0042, isPressed = 0x00, keyboard = 0x01)
+                            sendData(byteArray)
+                        }
+                        Log.i("up", "a")
+                    }
+                    R.id.v_key_c -> {
+                        isTouching[v.id] = false
+                        v.removeCallbacks(null);
+                        val button = findViewById<ImageButton>(R.id.v_key_c)
+                        button.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+                        if (isRecording)
+                            macro_data.append("|${delayTime()}|A Up|")
+                        if (!isMacro) {
+                            val byteArray = Gamepad(wbutton = 0x0043, isPressed = 0x00, keyboard = 0x01)
+                            sendData(byteArray)
+                        }
+                        Log.i("up", "a")
+                    }
+                    R.id.v_key_d -> {
+                        isTouching[v.id] = false
+                        v.removeCallbacks(null);
+                        val button = findViewById<ImageButton>(R.id.v_key_d)
+                        button.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+                        if (isRecording)
+                            macro_data.append("|${delayTime()}|A Up|")
+                        if (!isMacro) {
+                            val byteArray = Gamepad(wbutton = 0x0044, isPressed = 0x00, keyboard = 0x01)
+                            sendData(byteArray)
+                        }
+                        Log.i("up", "a")
+                    }
+                    R.id.v_key_e -> {
+                        isTouching[v.id] = false
+                        v.removeCallbacks(null);
+                        val button = findViewById<ImageButton>(R.id.v_key_e)
+                        button.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+                        if (isRecording)
+                            macro_data.append("|${delayTime()}|A Up|")
+                        if (!isMacro) {
+                            val byteArray = Gamepad(wbutton = 0x0045, isPressed = 0x00, keyboard = 0x01)
+                            sendData(byteArray)
+                        }
+                        Log.i("up", "a")
+                    }
+                    R.id.v_key_f -> {
+                        isTouching[v.id] = false
+                        v.removeCallbacks(null);
+                        val button = findViewById<ImageButton>(R.id.v_key_f)
+                        button.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+                        if (isRecording)
+                            macro_data.append("|${delayTime()}|A Up|")
+                        if (!isMacro) {
+                            val byteArray = Gamepad(wbutton = 0x0046, isPressed = 0x00, keyboard = 0x01)
+                            sendData(byteArray)
+                        }
+                        Log.i("up", "a")
+                    }
+                    R.id.v_key_g -> {
+                        isTouching[v.id] = false
+                        v.removeCallbacks(null);
+                        val button = findViewById<ImageButton>(R.id.v_key_g)
+                        button.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+                        if (isRecording)
+                            macro_data.append("|${delayTime()}|A Up|")
+                        if (!isMacro) {
+                            val byteArray = Gamepad(wbutton = 0x0047, isPressed = 0x00, keyboard = 0x01)
+                            sendData(byteArray)
+                        }
+                        Log.i("up", "a")
+                    }
+                    R.id.v_key_h -> {
+                        isTouching[v.id] = false
+                        v.removeCallbacks(null);
+                        val button = findViewById<ImageButton>(R.id.v_key_h)
+                        button.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
+                        if (isRecording)
+                            macro_data.append("|${delayTime()}|A Up|")
+                        if (!isMacro) {
+                            val byteArray = Gamepad(wbutton = 0x0048, isPressed = 0x00, keyboard = 0x01)
+                            sendData(byteArray)
+                        }
+                        Log.i("up", "a")
+                    }
                     R.id.key_a -> {
                         val button = findViewById<ImageButton>(R.id.key_a)
                         button.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
@@ -906,4 +1147,29 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
         }
     }
 
+//    private fun setupButton(button: ImageButton) {
+//        button.setOnLongClickListener {
+//            val id = button.id
+//            isTouching[id] = true
+//            startLoop(id)
+//            Log.i("long", "paa");
+//            true // Return true to indicate the event was handled
+//        }
+//    }
+
+
+    private fun startLoop(buttonId: Int, keycode: Int) {
+        handler.post(object : Runnable {
+            override fun run() {
+                if (isTouching[buttonId] == true) {
+                    val byteArray = Gamepad(wbutton = keycode, isPressed = 0x01, keyboard = 0x01)
+                    sendData(byteArray)
+                    handler.postDelayed(this, 50)
+                }
+                else {
+                    return;
+                }
+            }
+        })
+    }
 }

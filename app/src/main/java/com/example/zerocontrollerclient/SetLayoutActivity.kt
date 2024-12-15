@@ -75,6 +75,15 @@ class SetLayoutActivity : AppCompatActivity(), OnTouchListener {
     private lateinit var removebtn: ImageButton
     private lateinit var savebtn: ImageButton
     private lateinit var lastClickedButton: ImageButton
+    private lateinit var v_key_a: ImageButton
+    private lateinit var v_key_b: ImageButton
+    private lateinit var v_key_c: ImageButton
+    private lateinit var v_key_d: ImageButton
+    private lateinit var v_key_e: ImageButton
+    private lateinit var v_key_f: ImageButton
+    private lateinit var v_key_g: ImageButton
+    private lateinit var v_key_h: ImageButton
+
 
     private lateinit var scaleGestureDetector: ScaleGestureDetector
     private var scaleFactor = 1.0f
@@ -213,6 +222,22 @@ class SetLayoutActivity : AppCompatActivity(), OnTouchListener {
         key_action_button.tag = R.mipmap.key_action_button
         key_circular_button = findViewById(R.id.key_circular_button)
         key_circular_button.tag = R.mipmap.key_circular_button
+        v_key_a = findViewById(R.id.v_key_a)
+        v_key_a.tag = R.mipmap.v_key_a;
+        v_key_b = findViewById(R.id.v_key_b)
+        v_key_b.tag = R.mipmap.v_key_b;
+        v_key_c = findViewById(R.id.v_key_c)
+        v_key_c.tag = R.mipmap.v_key_c;
+        v_key_d = findViewById(R.id.v_key_d)
+        v_key_d.tag = R.mipmap.v_key_d;
+        v_key_e = findViewById(R.id.v_key_e)
+        v_key_e.tag = R.mipmap.v_key_e;
+        v_key_f = findViewById(R.id.v_key_f)
+        v_key_f.tag = R.mipmap.v_key_f;
+        v_key_g = findViewById(R.id.v_key_g)
+        v_key_g.tag = R.mipmap.v_key_g;
+        v_key_h = findViewById(R.id.v_key_h)
+        v_key_h.tag = R.mipmap.v_key_h;
 
         iconList.add(key_a)
         iconList.add(key_b)
@@ -235,10 +260,28 @@ class SetLayoutActivity : AppCompatActivity(), OnTouchListener {
         iconList.add(key_dpad)
         iconList.add(key_action_button)
         iconList.add(key_circular_button)
+        iconList.add(v_key_a)
+        iconList.add(v_key_b)
+        iconList.add(v_key_c)
+        iconList.add(v_key_d)
+        iconList.add(v_key_e)
+        iconList.add(v_key_f)
+        iconList.add(v_key_g)
+        iconList.add(v_key_h)
+
 
 
         mainContent.setOnTouchListener(this)
         // add a long click listener to the buttons
+        v_key_a.setOnLongClickListener { view -> dragButton(view, v_key_a) }
+        v_key_b.setOnLongClickListener { view -> dragButton(view, v_key_b) }
+        v_key_c.setOnLongClickListener { view -> dragButton(view, v_key_c) }
+        v_key_d.setOnLongClickListener { view -> dragButton(view, v_key_d) }
+        v_key_e.setOnLongClickListener { view -> dragButton(view, v_key_e) }
+        v_key_f.setOnLongClickListener { view -> dragButton(view, v_key_f) }
+        v_key_g.setOnLongClickListener { view -> dragButton(view, v_key_g) }
+        v_key_h.setOnLongClickListener { view -> dragButton(view, v_key_h) }
+
         key_a.setOnLongClickListener { view -> dragButton(view, key_a) }
         key_b.setOnLongClickListener { view -> dragButton(view, key_b) }
         key_x.setOnLongClickListener { view -> dragButton(view, key_x) }

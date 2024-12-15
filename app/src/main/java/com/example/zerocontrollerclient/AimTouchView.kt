@@ -83,8 +83,7 @@ class AimTouchView(context: Context, attrs: AttributeSet?) : View(context, attrs
             val timeElapsed = currentTime - prevTime
             val speed = calculateSpeed(dx, dy, timeElapsed)
 
-            // Normalize the speed and amplify it by sensitivity factor
-            val normalizedSpeed = normalizeSpeed(speed) * sensitivity
+            val normalizedSpeed = normalizeSpeed(speed)
 
             //Log.d("TouchPoint", "speed after scaling: $normalizedSpeed")
             if (normalizedSpeed == 0f) {
@@ -103,20 +102,21 @@ class AimTouchView(context: Context, attrs: AttributeSet?) : View(context, attrs
 
             val innerCircleRadius = (startPercentage / 100f) * CIRCLE_RADIUS
             val maxEffectiveDistance = (1 - (startPercentage / 100f)) * CIRCLE_RADIUS
-            // Adjust effective distance with sensitivity, giving more reach to higher speeds
-            val effectiveDistance = maxEffectiveDistance * normalizedSpeed
+            val effectiveDistance = maxEffectiveDistance * normalizedSpeed * sensitivity
             val targetRadius = innerCircleRadius + effectiveDistance
 
-            // Calculate angle and position within bounds
-            val angle = atan2(dy.toDouble(), dx.toDouble())
-            var targetPointX = (cos(angle) * targetRadius).toFloat()
-            var targetPointY = (sin(angle) * targetRadius).toFloat()
+            // Calculate the angle from the center to the current point
+            val angle = Math.atan2(dy.toDouble(), dx.toDouble())
+
+            // Calculate the target point based on angle and target radius
+            var targetPointX = (Math.cos(angle) * targetRadius).toFloat()
+            var targetPointY = (Math.sin(angle) * targetRadius).toFloat()
 
             // Enforce startPercentage boundary
-            val distanceFromCenter = sqrt((targetPointX * targetPointX + targetPointY * targetPointY).toDouble()).toFloat()
+            val distanceFromCenter = Math.sqrt((targetPointX * targetPointX + targetPointY * targetPointY).toDouble()).toFloat()
             if (distanceFromCenter < innerCircleRadius) {
-                targetPointX = (cos(angle) * innerCircleRadius).toFloat()
-                targetPointY = (sin(angle) * innerCircleRadius).toFloat()
+                targetPointX = (Math.cos(angle) * innerCircleRadius).toFloat()
+                targetPointY = (Math.sin(angle) * innerCircleRadius).toFloat()
             }
 
             // Smoothly interpolate to avoid flickering

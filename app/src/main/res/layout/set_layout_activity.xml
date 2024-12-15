@@ -339,6 +339,119 @@
                 android:src="@mipmap/key_circular_button"
                 app:tint="@color/white"
                 tools:ignore="ContentDescription" />
+
+            <ImageButton
+                android:id="@+id/v_key_a"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/key_circular_button"
+                android:layout_centerHorizontal="true"
+                android:background="@null"
+                android:clickable="false"
+                android:focusable="false"
+                android:longClickable = "true"
+                android:src="@mipmap/v_key_a"
+                app:tint="@color/white"
+                tools:ignore="ContentDescription" />
+
+            <ImageButton
+                android:id="@+id/v_key_b"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/v_key_a"
+                android:layout_centerHorizontal="true"
+                android:background="@null"
+                android:clickable="false"
+                android:focusable="false"
+                android:longClickable = "true"
+                android:src="@mipmap/v_key_b"
+                app:tint="@color/white"
+                tools:ignore="ContentDescription" />
+
+            <ImageButton
+                android:id="@+id/v_key_c"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/v_key_b"
+                android:layout_centerHorizontal="true"
+                android:background="@null"
+                android:clickable="false"
+                android:focusable="false"
+                android:longClickable = "true"
+                android:src="@mipmap/v_key_c"
+                app:tint="@color/white"
+                tools:ignore="ContentDescription" />
+
+            <ImageButton
+                android:id="@+id/v_key_d"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/v_key_c"
+                android:layout_centerHorizontal="true"
+                android:background="@null"
+                android:clickable="false"
+                android:focusable="false"
+                android:longClickable = "true"
+                android:src="@mipmap/v_key_d"
+                app:tint="@color/white"
+                tools:ignore="ContentDescription" />
+
+            <ImageButton
+                android:id="@+id/v_key_e"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/v_key_d"
+                android:layout_centerHorizontal="true"
+                android:background="@null"
+                android:clickable="false"
+                android:focusable="false"
+                android:longClickable = "true"
+                android:src="@mipmap/v_key_e"
+                app:tint="@color/white"
+                tools:ignore="ContentDescription" />
+
+            <ImageButton
+                android:id="@+id/v_key_f"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/v_key_e"
+                android:layout_centerHorizontal="true"
+                android:background="@null"
+                android:clickable="false"
+                android:focusable="false"
+                android:longClickable = "true"
+                android:src="@mipmap/v_key_f"
+                app:tint="@color/white"
+                tools:ignore="ContentDescription" />
+
+            <ImageButton
+                android:id="@+id/v_key_g"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/v_key_f"
+                android:layout_centerHorizontal="true"
+                android:background="@null"
+                android:clickable="false"
+                android:focusable="false"
+                android:longClickable = "true"
+                android:src="@mipmap/v_key_g"
+                app:tint="@color/white"
+                tools:ignore="ContentDescription" />
+
+            <ImageButton
+                android:id="@+id/v_key_h"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/v_key_g"
+                android:layout_centerHorizontal="true"
+                android:background="@null"
+                android:clickable="false"
+                android:focusable="false"
+                android:longClickable = "true"
+                android:src="@mipmap/v_key_h"
+                app:tint="@color/white"
+                tools:ignore="ContentDescription" />
+
         </RelativeLayout>
 
     </ScrollView>

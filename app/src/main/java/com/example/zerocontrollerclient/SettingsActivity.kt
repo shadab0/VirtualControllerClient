@@ -56,7 +56,7 @@ class SettingsActivity : AppCompatActivity() {
 
         val sensitivity = findViewById<Slider>(R.id.sensitivity)
         val sensitivityValue = findViewById<MaterialTextView>(R.id.sensitivity_value)
-        sensitivity.value = sharedPrefs.getFloat("sensitivity", 100f)
+        sensitivity.value = sharedPrefs.getFloat("sensitivity", 5f)
         sensitivityValue.text = sensitivity.value.toInt().toString()
         sensitivity.addOnChangeListener { _, value, _ ->
             editor.putFloat("sensitivity", value)
