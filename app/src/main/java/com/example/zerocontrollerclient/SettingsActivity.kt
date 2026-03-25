@@ -56,21 +56,12 @@ class SettingsActivity : AppCompatActivity() {
 
         val sensitivity = findViewById<Slider>(R.id.sensitivity)
         val sensitivityValue = findViewById<MaterialTextView>(R.id.sensitivity_value)
-        sensitivity.value = sharedPrefs.getFloat("sensitivity", 5f)
+        val savedSensitivity = sharedPrefs.getFloat("sensitivity", 1800f)
+        sensitivity.value = savedSensitivity.coerceIn(100f, 5000f)
         sensitivityValue.text = sensitivity.value.toInt().toString()
         sensitivity.addOnChangeListener { _, value, _ ->
             editor.putFloat("sensitivity", value)
             sensitivityValue.text = value.toInt().toString()
-            editor.apply()
-        }
-
-        val deadzone = findViewById<Slider>(R.id.deadzone)
-        val deadzoneValue = findViewById<MaterialTextView>(R.id.deadzone_value)
-        deadzone.value = sharedPrefs.getFloat("deadzone", 5f)
-        deadzoneValue.text = deadzone.value.toInt().toString() + "%"
-        deadzone.addOnChangeListener { _, value, _ ->
-            editor.putFloat("deadzone", value)
-            deadzoneValue.text = value.toInt().toString() + "%"
             editor.apply()
         }
     }

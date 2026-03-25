@@ -2,24 +2,17 @@ package com.example.zerocontrollerclient
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.AttributeSet
-import android.util.Log
+import android.view.Choreographer
 import android.view.MotionEvent
 import android.view.View
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 class AimTouchView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
-//    private val CIRCLE_RADIUS = 32767
-//    private var prevX = 0f
-//    private var prevY = 0f
-//    private var prevTime = 0L
 
     interface AimTouchListener {
         fun onAimTouchMoveMacro(aimTouchX: Float, aimTouchY: Float)
-        //fun Print()
     }
 
     private var aimTouchListener: AimTouchListener? = null
@@ -28,136 +21,92 @@ class AimTouchView(context: Context, attrs: AttributeSet?) : View(context, attrs
         aimTouchListener = listener
     }
 
-//    private val loggingThread = Thread {
-//        while (isRunning) {
-//            try {
-//                if (isMoving) {
-//                    aimTouchListener?.onAimTouchMoveMacro(aimTouchX, aimTouchY)
-//                    previousPoint = currentPoint
-//                }
-//                Thread.sleep(1000 / 24.toLong())
-//            } catch (e: Exception) {
-//                e.printStackTrace()
-//            }
-//        }
-//    }
-//
-//    override fun onAttachedToWindow() {
-//        super.onAttachedToWindow()
-//        isRunning = true
-//        loggingThread.start()
-//    }
-//
-//    override fun onDetachedFromWindow() {
-//        super.onDetachedFromWindow()
-//        isRunning = false
-//        try {
-//            loggingThread.join()
-//        } catch (e: InterruptedException) {
-//            e.printStackTrace()
-//        }
-//    }
+    private val MAX_JOYSTICK = 32767f
+    private val SMOOTHING = 0.35f
+    private var sensitivity = 1800f
 
-    // Assuming max radius of circle is 32767
-    private val CIRCLE_RADIUS = 32767f
-    private val sensitivity = 7f
-    private val noMovementThreshold = context.getSharedPreferences("selected_macros", Context.MODE_PRIVATE).getFloat("sensitivity", 10f)
-    private val startPercentage = context.getSharedPreferences("selected_macros", Context.MODE_PRIVATE).getFloat("deadzone", 5f)
-    private var prevX = 0f
-    private var prevY = 0f
-    private var prevTime = 0L
-    private var currentPointX = 0f
-    private var currentPointY = 0f
-    private val smoothingFactor = 0.1f
-    private var zeroSpeedFrameCount = 0
+    private var targetJoyX = 0f
+    private var targetJoyY = 0f
+    private var currentJoyX = 0f
+    private var currentJoyY = 0f
+
+    private var isActive = false
+    private var lastX = 0f
+    private var lastY = 0f
+
+    private val stopHandler = Handler(Looper.getMainLooper())
+    private val stopRunnable = Runnable {
+        targetJoyX = 0f
+        targetJoyY = 0f
+    }
+
+    private var isLooping = false
+    private val frameCallback = object : Choreographer.FrameCallback {
+        override fun doFrame(frameTimeNanos: Long) {
+            if (!isLooping) return
+
+            currentJoyX += (targetJoyX - currentJoyX) * SMOOTHING
+            currentJoyY += (targetJoyY - currentJoyY) * SMOOTHING
+
+            aimTouchListener?.onAimTouchMoveMacro(currentJoyX, currentJoyY)
+
+            Choreographer.getInstance().postFrameCallback(this)
+        }
+    }
+
+    init {
+        sensitivity = context.getSharedPreferences("selected_macros", Context.MODE_PRIVATE).getFloat("sensitivity", 1800f)
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        isLooping = true
+        Choreographer.getInstance().postFrameCallback(frameCallback)
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        isLooping = false
+        stopHandler.removeCallbacksAndMessages(null)
+    }
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        val x = event.x
-        val y = event.y
-        val currentTime = System.currentTimeMillis()
+        sensitivity = context.getSharedPreferences("selected_macros", Context.MODE_PRIVATE).getFloat("sensitivity", 1800f)
 
-        if (event.action == MotionEvent.ACTION_MOVE) {
-            val dx = x - prevX
-            val dy = y - prevY
-            val timeElapsed = currentTime - prevTime
-            val speed = calculateSpeed(dx, dy, timeElapsed)
-
-            val normalizedSpeed = normalizeSpeed(speed)
-
-            //Log.d("TouchPoint", "speed after scaling: $normalizedSpeed")
-            if (normalizedSpeed == 0f) {
-                zeroSpeedFrameCount++
-                if (zeroSpeedFrameCount >= 3) {
-                    aimTouchListener?.onAimTouchMoveMacro(0f, 0f)
-                    //Log.d("TouchPoint", "No movement detected due to low speed$normalizedSpeed")
-                    prevX = x
-                    prevY = y
-                    prevTime = currentTime
-                    return true
-                }
-            } else {
-                zeroSpeedFrameCount = 0 // Reset counter if there is movement
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                isActive = true
+                lastX = event.x
+                lastY = event.y
+                stopHandler.removeCallbacks(stopRunnable)
             }
+            MotionEvent.ACTION_MOVE -> {
+                if (!isActive) return true
 
-            val innerCircleRadius = (startPercentage / 100f) * CIRCLE_RADIUS
-            val maxEffectiveDistance = (1 - (startPercentage / 100f)) * CIRCLE_RADIUS
-            val effectiveDistance = maxEffectiveDistance * normalizedSpeed * sensitivity
-            val targetRadius = innerCircleRadius + effectiveDistance
+                val deltaX = event.x - lastX
+                val deltaY = event.y - lastY
 
-            // Calculate the angle from the center to the current point
-            val angle = Math.atan2(dy.toDouble(), dx.toDouble())
+                lastX = event.x
+                lastY = event.y
 
-            // Calculate the target point based on angle and target radius
-            var targetPointX = (Math.cos(angle) * targetRadius).toFloat()
-            var targetPointY = (Math.sin(angle) * targetRadius).toFloat()
+                val rawX = deltaX * sensitivity
+                val rawY = deltaY * sensitivity
 
-            // Enforce startPercentage boundary
-            val distanceFromCenter = Math.sqrt((targetPointX * targetPointX + targetPointY * targetPointY).toDouble()).toFloat()
-            if (distanceFromCenter < innerCircleRadius) {
-                targetPointX = (Math.cos(angle) * innerCircleRadius).toFloat()
-                targetPointY = (Math.sin(angle) * innerCircleRadius).toFloat()
+                targetJoyX = rawX.coerceIn(-MAX_JOYSTICK, MAX_JOYSTICK)
+                targetJoyY = rawY.coerceIn(-MAX_JOYSTICK, MAX_JOYSTICK)
+
+                // Snap to 0 if movement stops for 40ms
+                stopHandler.removeCallbacks(stopRunnable)
+                stopHandler.postDelayed(stopRunnable, 40)
             }
-
-            // Smoothly interpolate to avoid flickering
-            currentPointX += (targetPointX - currentPointX) * smoothingFactor
-            currentPointY += (targetPointY - currentPointY) * smoothingFactor
-
-            updateTouchPoint(currentPointX, currentPointY)
-
-            prevX = x
-            prevY = y
-            prevTime = currentTime
-        } else if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
-            aimTouchListener?.onAimTouchMoveMacro(0f, 0f)
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> {
+                isActive = false
+                stopHandler.removeCallbacks(stopRunnable)
+                targetJoyX = 0f
+                targetJoyY = 0f
+            }
         }
         return true
     }
-
-    // Method to calculate speed
-    private fun calculateSpeed(dx: Float, dy: Float, timeElapsed: Long): Float {
-        return if (timeElapsed == 0L) 0f else (Math.sqrt((dx * dx + dy * dy).toDouble()) / timeElapsed).toFloat()
-    }
-
-    // Normalize speed to a value between 0 and 1
-    private fun normalizeSpeed(speed: Float): Float {
-        val minSpeed = 0.1f
-        val maxSpeed = 5f
-        return ((speed - minSpeed) / (maxSpeed - minSpeed)).coerceIn(0f, 1f)
-    }
-
-    // Update and log the touch point in your circle
-    private fun updateTouchPoint(x: Float, y: Float) {
-        val constrainedX = x.coerceIn(-CIRCLE_RADIUS, CIRCLE_RADIUS)
-        val constrainedY = y.coerceIn(-CIRCLE_RADIUS, CIRCLE_RADIUS)
-
-        aimTouchListener?.onAimTouchMoveMacro(constrainedX, -constrainedY)
-        //Log.d("TouchPoint", "X: $constrainedX, Y: -$constrainedY")
-
-        // Here, you can add the code to visually update your UI element (e.g., moving a point on the screen)
-        // For example, update a View position based on constrainedX and constrainedY
-        // yourView.x = constrainedX
-        // yourView.y = constrainedY
-    }
-
 }
