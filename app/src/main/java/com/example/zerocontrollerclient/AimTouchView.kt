@@ -22,7 +22,8 @@ class AimTouchView(context: Context, attrs: AttributeSet?) : View(context, attrs
     // ─── Constants ──────────────────────────────────────────────────────────
     private val MAX_JOYSTICK = 32767f
     // If no movement is detected for this long, target snaps to 0 (finger is stationary)
-    private val STOP_TIMEOUT_MS = 20L
+    // Increased to 40ms to avoid stuttering on 60Hz/120Hz displays
+    private val STOP_TIMEOUT_MS = 40L
     // Minimum output magnitude so slow drags always register in the game
     private val MIN_JOY_OUTPUT = 8000f
 
@@ -47,7 +48,8 @@ class AimTouchView(context: Context, attrs: AttributeSet?) : View(context, attrs
 
     private fun startLoop() {
         loopThread = Thread {
-            val intervalMs = 4L  // ~250 Hz
+            val intervalNs = 4_000_000L  // 4ms = ~250 Hz
+
             while (running.get()) {
                 val loopStart = System.nanoTime()
 
@@ -58,26 +60,37 @@ class AimTouchView(context: Context, attrs: AttributeSet?) : View(context, attrs
                     targetJoyY = 0f
                 }
 
-                val tx = targetJoyX
-                val ty = targetJoyY
+                if (!isActive) {
+                    // Eliminate post-lift cursor drift by immediately clearing
+                    targetJoyX = 0f
+                    targetJoyY = 0f
+                }
 
-                // Always relay the current target at 250 Hz.
-                // When transitioning to (0,0) make sure it is sent at least once.
-                if (tx != 0f || ty != 0f) {
-                    lastSentX = tx
-                    lastSentY = ty
-                    aimTouchListener?.onAimTouchMoveMacro(tx, ty)
+                val cx = targetJoyX
+                val cy = targetJoyY
+
+                // Always relay the current target at 250 Hz, BUT only if the integer value changed
+                // This prevents TCP buffer bloat causing 10-15s delayed stick movement
+                if (kotlin.math.abs(cx) > 0.5f || kotlin.math.abs(cy) > 0.5f) {
+                    if (cx.toInt() != lastSentX.toInt() || cy.toInt() != lastSentY.toInt()) {
+                        lastSentX = cx
+                        lastSentY = cy
+                        aimTouchListener?.onAimTouchMoveMacro(cx, cy)
+                    }
                 } else if (lastSentX != 0f || lastSentY != 0f) {
                     // Target just became 0 — send the reset packet exactly once
                     lastSentX = 0f
                     lastSentY = 0f
                     aimTouchListener?.onAimTouchMoveMacro(0f, 0f)
                 }
-                // If both are already 0 and we already sent reset → do nothing (idle)
 
-                val elapsedMs = (System.nanoTime() - loopStart) / 1_000_000L
-                val sleepMs = intervalMs - elapsedMs
-                if (sleepMs > 0) Thread.sleep(sleepMs)
+                val elapsedNs = System.nanoTime() - loopStart
+                val sleepNs = intervalNs - elapsedNs
+                if (sleepNs > 0) {
+                    val sleepMs = sleepNs / 1_000_000L
+                    val sleepNano = (sleepNs % 1_000_000L).toInt()
+                    Thread.sleep(sleepMs, sleepNano)
+                }
             }
         }.also {
             it.name = "AimTouchLoop"
@@ -89,8 +102,9 @@ class AimTouchView(context: Context, attrs: AttributeSet?) : View(context, attrs
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        sensitivity = context.getSharedPreferences("selected_macros", Context.MODE_PRIVATE)
-            .getFloat("sensitivity", 1800f)
+        val baseSens = context.getSharedPreferences("selected_macros", Context.MODE_PRIVATE)
+            .getFloat("sensitivity", 50f).coerceIn(1f, 100f)
+        sensitivity = baseSens * 36f
         running.set(true)
         startLoop()
     }
@@ -115,11 +129,7 @@ class AimTouchView(context: Context, attrs: AttributeSet?) : View(context, attrs
             MotionEvent.ACTION_MOVE -> {
                 if (!isActive) return true
 
-                // Consume all batched historical points so no pixel is missed
-                val histCount = event.historySize
-                for (h in 0 until histCount) {
-                    processMove(event.getHistoricalX(h), event.getHistoricalY(h))
-                }
+                // Use the native event interval delta instead of slicing into micro-historical deltas
                 processMove(event.x, event.y)
             }
 
@@ -149,11 +159,21 @@ class AimTouchView(context: Context, attrs: AttributeSet?) : View(context, attrs
         var joyX = rawX.coerceIn(-MAX_JOYSTICK, MAX_JOYSTICK)
         var joyY = rawY.coerceIn(-MAX_JOYSTICK, MAX_JOYSTICK)
 
-        // Boost slow movements so the game always detects them
-        if (joyX != 0f && kotlin.math.abs(joyX) < MIN_JOY_OUTPUT)
-            joyX = kotlin.math.sign(joyX) * MIN_JOY_OUTPUT
-        if (joyY != 0f && kotlin.math.abs(joyY) < MIN_JOY_OUTPUT)
-            joyY = kotlin.math.sign(joyY) * MIN_JOY_OUTPUT
+        // Apply linear Anti-Deadzone scaling to preserve perfect accurate aiming
+        val TOUCH_JITTER = 100f
+        val magnitude = kotlin.math.sqrt(joyX * joyX + joyY * joyY)
+        
+        if (magnitude > TOUCH_JITTER) {
+            val mag = magnitude.coerceAtMost(MAX_JOYSTICK)
+            val t = (mag - TOUCH_JITTER) / (MAX_JOYSTICK - TOUCH_JITTER)
+            val outputMag = MIN_JOY_OUTPUT + t * (MAX_JOYSTICK - MIN_JOY_OUTPUT)
+            val scale = outputMag / magnitude
+            joyX *= scale
+            joyY *= scale
+        } else {
+            joyX = 0f
+            joyY = 0f
+        }
 
         targetJoyX = joyX
         targetJoyY = joyY

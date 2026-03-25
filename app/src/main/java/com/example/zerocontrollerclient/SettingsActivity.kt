@@ -54,14 +54,32 @@ class SettingsActivity : AppCompatActivity() {
             editor.apply()
         }
 
+        val gyroBtn = findViewById<SwitchMaterial>(R.id.gyroscope)
+        gyroBtn.isChecked = sharedPrefs.getBoolean("gyroscope", false)
+        gyroBtn.setOnCheckedChangeListener { _, isChecked ->
+            editor.putBoolean("gyroscope", isChecked)
+            editor.apply()
+        }
+
         val sensitivity = findViewById<Slider>(R.id.sensitivity)
         val sensitivityValue = findViewById<MaterialTextView>(R.id.sensitivity_value)
-        val savedSensitivity = sharedPrefs.getFloat("sensitivity", 1800f)
-        sensitivity.value = savedSensitivity.coerceIn(100f, 5000f)
+        val savedSensitivity = sharedPrefs.getFloat("sensitivity", 50f)
+        sensitivity.value = savedSensitivity.coerceIn(1f, 100f)
         sensitivityValue.text = sensitivity.value.toInt().toString()
         sensitivity.addOnChangeListener { _, value, _ ->
             editor.putFloat("sensitivity", value)
             sensitivityValue.text = value.toInt().toString()
+            editor.apply()
+        }
+
+        val gyroSensitivity = findViewById<Slider>(R.id.gyro_sensitivity)
+        val gyroSensitivityValue = findViewById<MaterialTextView>(R.id.gyro_sensitivity_value)
+        val savedGyroSensitivity = sharedPrefs.getFloat("gyro_sensitivity", 50f)
+        gyroSensitivity.value = savedGyroSensitivity.coerceIn(1f, 100f)
+        gyroSensitivityValue.text = gyroSensitivity.value.toInt().toString()
+        gyroSensitivity.addOnChangeListener { _, value, _ ->
+            editor.putFloat("gyro_sensitivity", value)
+            gyroSensitivityValue.text = value.toInt().toString()
             editor.apply()
         }
     }

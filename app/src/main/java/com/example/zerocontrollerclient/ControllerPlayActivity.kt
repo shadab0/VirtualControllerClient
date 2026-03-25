@@ -6,6 +6,10 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -33,10 +37,10 @@ import kotlinx.coroutines.launch
 import java.net.SocketException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-
+import java.util.concurrent.atomic.AtomicBoolean
 
 @Suppress("DEPRECATION")
-class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
+class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener, SensorEventListener {
 
     private lateinit var playActivityMainContent: RelativeLayout
     private lateinit var vibrator: Vibrator
@@ -49,8 +53,6 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
     private var macroClicked = false
     private var isRecording = false
     private var lastClickTime = 0L
-//    val values1 = arrayOf(0, 120, 180, 240, 360, 480)
-//    var currentIndex = 0
 
     private var macroCount = 0
     private var threadExited = true
@@ -60,6 +62,17 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
 
     private val handler = Handler()
     private val isTouching = mutableMapOf<Int, Boolean>()
+
+    private var sensorManager: SensorManager? = null
+    private var gyroscopeSensor: Sensor? = null
+    private var isGyroEnabled = false
+    private var gyroSensitivity = 10f
+    private val gyroRunning = AtomicBoolean(false)
+    private var gyroThread: Thread? = null
+    @Volatile private var targetGyroX = 0f
+    @Volatile private var targetGyroY = 0f
+    @Volatile private var lastGyroMoveTime = 0L
+    private val GYRO_STOP_TIMEOUT_MS = 20L
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -139,84 +152,121 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
             }
         }
 
-
-        /*  handler = Handler()
-          handler.postDelayed(object : Runnable {
-              override fun run() {
-                  val currentXPosition = xPosition
-                  val currentYPosition = yPosition
-                  Log.e("Pos", "$xPosition-$yPosition")
-                 // handler.postDelayed(this, 16) // 60 times per second
-                  handler.postDelayed(this, 1000)
-              }
-          }, 16)*/
-
-        /* val executor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
-         val interval: Long = 16
-         val myRunnable = Runnable {
-             val aVal = aButtonEvents.poll()
-             val bVal = bButtonEvents.poll()
-             if(aVal != null)
-                 Log.e("Abutton", aVal)
-             if(bVal != null)
-                 Log.e("Bbutton", bVal)
-         }
-         val future = executor.scheduleAtFixedRate(myRunnable, 0, interval, TimeUnit.MILLISECONDS)*/
-
-
-//        Thread {
-//            while (true) {
-//                try {
-//                    val aVal = socketMessage.take()
-//                    if (aVal != null) {
-//                        //Log.e("Abutton", aVal)
-//                        outputStream?.write(aVal)?.also { outputStream.flush() }
-//                    }
-////                    outputStream?.write(socketAnalogueR.toByteArray())?.also { outputStream.flush() }
-//                    Thread.sleep(1)
-//                    //  socket.close()
-//                } catch (e: SocketException) {
-//                    Log.e("Error", "Error: ${e.message}")
-//                    runOnUiThread {
-//                        Toast.makeText(this@ControllerPlayActivity, "Connection Lost. Please Reconnect Controller", Toast.LENGTH_SHORT).show()
-//                    }
-//                }
-//            }
-//        }.start()
-
-        /*    Thread {
-                try {
-                    while (true){
-                        outputStream?.write(socketAnalogueR.toByteArray())?.also { outputStream.flush() }
-                        Thread.sleep(5)
-                    }
-                    //  socket.close()
-                } catch (e: Exception) {
-                    Log.e("SocketClient", "Error: ${e.message}")
-                }
-            }.start()*/
-
-
         onLoadLayout(loadButtonList(this))
         record_layout.bringToFront()
-
-//        findViewById<Button>(R.id.button).setOnClickListener {
-//            if (currentIndex>5)
-//            {
-//                Toast.makeText(this, "Done", Toast.LENGTH_SHORT).show()
-//                return@setOnClickListener
-//            }
-//            currentIndex++
-//            if(currentIndex<values1.size) {
-//                val layoutParams1 = RelativeLayout.LayoutParams(values1[currentIndex],values1[currentIndex])
-//                joystickl.layoutParams = layoutParams1
-//
-//            }
-//            saveimage(joystickl,"joystick_l")
-//            saveimage(joystickr,"joystick_r")
-//        }
-
     }
+
+    override fun onResume() {
+        super.onResume()
+        val sharedPrefs = getSharedPreferences("selected_macros", Context.MODE_PRIVATE)
+        isGyroEnabled = sharedPrefs.getBoolean("gyroscope", false)
+        val baseSens = sharedPrefs.getFloat("gyro_sensitivity", 50f).coerceIn(1f, 100f)
+        gyroSensitivity = baseSens * 100f
+
+        if (isGyroEnabled) {
+            sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+            gyroscopeSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+            sensorManager?.registerListener(this, gyroscopeSensor, SensorManager.SENSOR_DELAY_GAME)
+            startGyroLoop()
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        sensorManager?.unregisterListener(this)
+        stopGyroLoop()
+    }
+
+    private fun startGyroLoop() {
+        if (gyroRunning.get()) return
+        gyroRunning.set(true)
+        gyroThread = Thread {
+            val intervalMs = 4L
+            var lastSentX = 0f
+            var lastSentY = 0f
+            while (gyroRunning.get()) {
+                val loopStart = System.currentTimeMillis()
+
+                val mt = lastGyroMoveTime
+                if (mt > 0L && (System.currentTimeMillis() - mt) > GYRO_STOP_TIMEOUT_MS) {
+                    targetGyroX = 0f
+                    targetGyroY = 0f
+                }
+
+                val tx = targetGyroX
+                val ty = targetGyroY
+
+                if (tx != 0f || ty != 0f) {
+                    if (tx.toInt() != lastSentX.toInt() || ty.toInt() != lastSentY.toInt()) {
+                        lastSentX = tx
+                        lastSentY = ty
+                        val byteArray = Gamepad(Rx = tx.toInt().toShort(), Ry = ty.toInt().toShort(), isPressed = 0x01, isJoystick = 0x02)
+                        sendData(byteArray)
+                    }
+                } else if (lastSentX != 0f || lastSentY != 0f) {
+                    lastSentX = 0f
+                    lastSentY = 0f
+                    val byteArray = Gamepad(Rx = 0, Ry = 0, isPressed = 0x01, isJoystick = 0x02)
+                    sendData(byteArray)
+                }
+
+                val elapsedMs = System.currentTimeMillis() - loopStart
+                val sleepMs = intervalMs - elapsedMs
+                if (sleepMs > 0) Thread.sleep(sleepMs)
+            }
+        }.also {
+            it.name = "GyroLoop"
+            it.isDaemon = true
+            it.start()
+        }
+    }
+
+    private fun stopGyroLoop() {
+        gyroRunning.set(false)
+        gyroThread?.interrupt()
+        gyroThread = null
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event?.sensor?.type == Sensor.TYPE_GYROSCOPE && isGyroEnabled) {
+            val x = event.values[0]
+            val y = event.values[1]
+            val z = event.values[2]
+
+            // Landscape orientation: X is Yaw (Horizontal), Y is Pitch (Vertical)
+            // Y is inverted based on user preference
+            val rawX = -x * gyroSensitivity
+            val rawY = -y * gyroSensitivity
+
+            val MAX_JOYSTICK = 32767f
+            val MIN_JOY_OUTPUT = 8000f
+
+            var joyX = rawX.coerceIn(-MAX_JOYSTICK, MAX_JOYSTICK)
+            var joyY = rawY.coerceIn(-MAX_JOYSTICK, MAX_JOYSTICK)
+
+            // Linearly map the remaining input to the game's hardware stick travel bounds
+            val GYRO_JITTER = 100f
+            val magnitude = kotlin.math.sqrt(joyX * joyX + joyY * joyY)
+            
+            if (magnitude > GYRO_JITTER) {
+                val mag = magnitude.coerceAtMost(MAX_JOYSTICK)
+                val t = (mag - GYRO_JITTER) / (MAX_JOYSTICK - GYRO_JITTER)
+                val outputMag = MIN_JOY_OUTPUT + t * (MAX_JOYSTICK - MIN_JOY_OUTPUT)
+                val scale = outputMag / magnitude
+                joyX *= scale
+                joyY *= scale
+            } else {
+                joyX = 0f
+                joyY = 0f
+            }
+
+            targetGyroX = joyX
+            targetGyroY = joyY
+            lastGyroMoveTime = System.currentTimeMillis()
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
     @SuppressLint("ClickableViewAccessibility", "InflateParams")
     private fun onLoadLayout(buttonList: MutableList<Pair<Pair<Pair<Int, Int>, Pair<Int, Int>>, Pair<Pair<Float, Float>, Pair<Int, Int>>>>) {
@@ -417,27 +467,6 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
         }
     }
 
-//    private fun saveimage(view: View, name: String)
-//    {
-//        view.isDrawingCacheEnabled = true
-//        view.buildDrawingCache()
-//        view.drawingCacheQuality = View.DRAWING_CACHE_QUALITY_HIGH
-//        val bitmap = Bitmap.createBitmap(view.drawingCache)
-//        view.isDrawingCacheEnabled = false
-//        val imagesDir = File(this.getExternalFilesDir(null), "images")
-//        imagesDir.mkdirs()
-//        val imageFile = File(imagesDir, "${name}_${values1[currentIndex-1]}.png")
-//        try {
-//            val outputStream: OutputStream = FileOutputStream(imageFile)
-//            bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
-//            outputStream.flush()
-//            outputStream.close()
-//            Log.d("img", "Saved ${name}_${values1[currentIndex-1]}.png")
-//        } catch (e: Exception) {
-//            e.printStackTrace()
-//        }
-//    }
-
     private fun loadButtonList(context: Context): MutableList<Pair<Pair<Pair<Int, Int>, Pair<Int, Int>>, Pair<Pair<Float, Float>, Pair<Int, Int>>>> {
         val prefs = context.getSharedPreferences(profile, Context.MODE_PRIVATE)
         val buttonCount = prefs.getInt("button_count", 0)
@@ -553,10 +582,6 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
 
     @SuppressLint("ClickableViewAccessibility", "NewApi")
     override fun onTouch(v: View, event: MotionEvent): Boolean {
-//        val i = event.actionIndex
-//        val actionId = event.getPointerId(i)
-//        val touchX = event.getX(i)
-//        val touchY = event.getY(i)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
                 when (v.id) {
@@ -1146,17 +1171,6 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
             }
         }
     }
-
-//    private fun setupButton(button: ImageButton) {
-//        button.setOnLongClickListener {
-//            val id = button.id
-//            isTouching[id] = true
-//            startLoop(id)
-//            Log.i("long", "paa");
-//            true // Return true to indicate the event was handled
-//        }
-//    }
-
 
     private fun startLoop(buttonId: Int, keycode: Int) {
         handler.post(object : Runnable {
