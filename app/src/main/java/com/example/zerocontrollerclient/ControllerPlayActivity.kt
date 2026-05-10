@@ -24,6 +24,7 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.widget.ImageButton
 import android.widget.LinearLayout
+import android.widget.RadioGroup
 import android.widget.RelativeLayout
 import android.widget.SeekBar
 import android.widget.Switch
@@ -77,6 +78,7 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
     private var isGyroEnabled = false
     private var gyroSensitivity = 1800f
     private var gyroAntiDeadzone = 7500f
+    private var pollingRateHz = 250
     private var aimTouchViewRef: AimTouchView? = null
 
     @SuppressLint("ClickableViewAccessibility")
@@ -314,6 +316,26 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
         switchGyro.setOnCheckedChangeListener { _, isChecked ->
             isGyroEnabled = isChecked
             sharedPrefs.edit().putBoolean("gyro_enabled", isChecked).apply()
+        }
+
+        val radioGroupPolling = findViewById<RadioGroup>(R.id.radio_group_polling)
+        pollingRateHz = sharedPrefs.getInt("polling_rate", 250)
+        when (pollingRateHz) {
+            500 -> radioGroupPolling.check(R.id.radio_500)
+            750 -> radioGroupPolling.check(R.id.radio_750)
+            1000 -> radioGroupPolling.check(R.id.radio_1000)
+            else -> radioGroupPolling.check(R.id.radio_250)
+        }
+
+        radioGroupPolling.setOnCheckedChangeListener { group: RadioGroup, checkedId: Int ->
+            val rate = when (checkedId) {
+                R.id.radio_500 -> 500
+                R.id.radio_750 -> 750
+                R.id.radio_1000 -> 1000
+                else -> 250
+            }
+            pollingRateHz = rate
+            sharedPrefs.edit().putInt("polling_rate", rate).apply()
         }
 
         val seekBarListener = object : SeekBar.OnSeekBarChangeListener {
@@ -642,6 +664,7 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
         buffer[1] = clientSlot    // Client Slot
         
         val thread = Thread {
+            var lastTime = System.nanoTime()
             while (isLoopRunning) {
                 try {
                     sequenceNumber++
@@ -688,11 +711,20 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
                 } catch (e: Exception) {
                     Log.e("UDP_LOOP", "Error: ${e.message}")
                 }
-                try {
-                    Thread.sleep(4) // 250Hz = 4ms
-                } catch (e: InterruptedException) {
-                    break
+                
+                val targetDeltaNanos = 1_000_000_000L / pollingRateHz
+                val currentTime = System.nanoTime()
+                val elapsed = currentTime - lastTime
+                
+                if (elapsed < targetDeltaNanos) {
+                    val remainingNanos = targetDeltaNanos - elapsed
+                    if (remainingNanos > 1_000_000L) {
+                        java.util.concurrent.locks.LockSupport.parkNanos(remainingNanos - 500_000L)
+                    }
+                    // Busy-wait the remaining fraction of a millisecond
+                    while (System.nanoTime() - lastTime < targetDeltaNanos) { }
                 }
+                lastTime = System.nanoTime()
             }
         }
         thread.priority = Thread.MAX_PRIORITY
