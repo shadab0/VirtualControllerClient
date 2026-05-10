@@ -28,7 +28,6 @@ import androidx.core.content.ContextCompat
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import java.net.SocketException
 import java.nio.ByteBuffer
@@ -54,9 +53,6 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
 
     private var macroCount = 0
     private var threadExited = true
-    private val outputStream = SharedObject.getOutputStream()
-    private val coroutinePoolSize = 1 // Number of worker coroutines
-    private val dataChannel = Channel<ByteArray>(Channel.UNLIMITED)
 
     private val handler = Handler()
     private val isTouching = mutableMapOf<Int, Boolean>()
@@ -231,9 +227,8 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
                     if (isRecording)
                         macro_data.append("${delayTime()},R $aimTouchX $aimTouchY,")
                     if (!isMacro) {
-                        val byteArray = Gamepad(Rx = aimTouchX.toInt().toShort(), Ry = aimTouchY.toInt()
-                            .toShort(), isPressed = 0x01, isJoystick = 0x02)
-                        sendData(byteArray)
+                        controllerState.Rx = aimTouchX.toInt().toShort()
+                        controllerState.Ry = aimTouchY.toInt().toShort()
                     }
                 }
             })
@@ -256,8 +251,8 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
                             if (isRecording)
                                 macro_data.append("${delayTime()}|L $joystickX $joystickY,")
                             if (!isMacro) {
-                                val byteArray = Gamepad(Lx = joystickX.toShort(), Ly = joystickY.toShort(), isPressed = 0x01, isJoystick = 0x01)
-                                sendData(byteArray)
+                                controllerState.Lx = joystickX.toShort()
+                                controllerState.Ly = joystickY.toShort()
                             }
                         }
 
@@ -265,8 +260,8 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
                             if (isRecording)
                                 macro_data.append("${delayTime()},L $joystickX $joystickY,")
                             if (!isMacro) {
-                                val byteArray = Gamepad(Lx = joystickX.toShort(), Ly = joystickY.toShort(), isPressed = 0x01, isJoystick = 0x01)
-                                sendData(byteArray)
+                                controllerState.Lx = joystickX.toShort()
+                                controllerState.Ly = joystickY.toShort()
                             }
                         }
 
@@ -274,8 +269,8 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
                             if (isRecording)
                                 macro_data.append("${delayTime()}|L0 0|")
                             if (!isMacro) {
-                                val byteArray = Gamepad(isPressed = 0x01, isJoystick = 0x01)
-                                sendData(byteArray)
+                                controllerState.Lx = 0.toShort()
+                                controllerState.Ly = 0.toShort()
                             }
                             vibrate()
                         }
@@ -298,8 +293,8 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
                             if (isRecording)
                                 macro_data.append("${delayTime()}|R $joystickX $joystickY,")
                             if (!isMacro) {
-                                val byteArray = Gamepad(Rx = joystickX.toShort(), Ry = joystickY.toShort(), isPressed = 0x01, isJoystick = 0x02)
-                                sendData(byteArray)
+                                controllerState.Rx = joystickX.toShort()
+                                controllerState.Ry = joystickY.toShort()
                             }
                         }
 
@@ -307,8 +302,8 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
                             if (isRecording)
                                 macro_data.append("${delayTime()},R $joystickX $joystickY,")
                             if (!isMacro) {
-                                val byteArray = Gamepad(Rx = joystickX.toShort(), Ry = joystickY.toShort(), isPressed = 0x01, isJoystick = 0x02)
-                                sendData(byteArray)
+                                controllerState.Rx = joystickX.toShort()
+                                controllerState.Ry = joystickY.toShort()
                             }
                         }
 
@@ -316,8 +311,8 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
                             if (isRecording)
                                 macro_data.append("${delayTime()}|R0 0|")
                             if (!isMacro) {
-                                val byteArray = Gamepad(isPressed = 0x01, isJoystick = 0x02)
-                                sendData(byteArray)
+                                controllerState.Rx = 0.toShort()
+                                controllerState.Ry = 0.toShort()
                             }
                             vibrate()
                         }
@@ -478,15 +473,104 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
         return "${timeDelay}ms"
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
+    data class ControllerState(
+        var wbutton: Int = 0,
+        var LT: UByte = 0u,
+        var RT: UByte = 0u,
+        var Lx: Short = 0,
+        var Ly: Short = 0,
+        var Rx: Short = 0,
+        var Ry: Short = 0,
+        var isPressed: Byte = 0,
+        var isDpad: Byte = 0,
+        var isJoystick: Byte = 0,
+        var isMacro: Byte = 0
+    )
+
+    private val controllerState = ControllerState()
+    private var sequenceNumber: UInt = 0u
+    private var isLoopRunning = true
+
     private fun initCoroutines() {
-        repeat(coroutinePoolSize) {
-            GlobalScope.launch(Dispatchers.IO) {
-                for (data in dataChannel) {
-                    sendDataToSocket(data)
+        val udpSocket = SharedObject.getSocket()
+        if (udpSocket == null || SharedObject.serverIp.isEmpty()) return
+        
+        val serverAddress = java.net.InetAddress.getByName(SharedObject.serverIp)
+        val serverPort = SharedObject.serverPort
+        val clientSlot = SharedObject.clientSlot
+        
+        val buffer = ByteArray(22)
+        val packet = java.net.DatagramPacket(buffer, buffer.size, serverAddress, serverPort)
+        buffer[0] = 0x01.toByte() // Packet Type: Data
+        buffer[1] = clientSlot    // Client Slot
+        
+        val thread = Thread {
+            while (isLoopRunning) {
+                try {
+                    sequenceNumber++
+                    val seq = sequenceNumber.toInt()
+                    buffer[2] = (seq and 0xFF).toByte()
+                    buffer[3] = ((seq shr 8) and 0xFF).toByte()
+                    buffer[4] = ((seq shr 16) and 0xFF).toByte()
+                    buffer[5] = ((seq shr 24) and 0xFF).toByte()
+                    
+                    val wb = controllerState.wbutton
+                    buffer[6] = (wb and 0xFF).toByte()
+                    buffer[7] = ((wb shr 8) and 0xFF).toByte()
+                    
+                    buffer[8] = controllerState.LT.toByte()
+                    buffer[9] = controllerState.RT.toByte()
+                    
+                    val lx = controllerState.Lx.toInt()
+                    buffer[10] = (lx and 0xFF).toByte()
+                    buffer[11] = ((lx shr 8) and 0xFF).toByte()
+                    
+                    val ly = controllerState.Ly.toInt()
+                    buffer[12] = (ly and 0xFF).toByte()
+                    buffer[13] = ((ly shr 8) and 0xFF).toByte()
+                    
+                    val rx = controllerState.Rx.toInt()
+                    buffer[14] = (rx and 0xFF).toByte()
+                    buffer[15] = ((rx shr 8) and 0xFF).toByte()
+                    
+                    val ry = controllerState.Ry.toInt()
+                    buffer[16] = (ry and 0xFF).toByte()
+                    buffer[17] = ((ry shr 8) and 0xFF).toByte()
+                    
+                    buffer[18] = controllerState.isPressed
+                    buffer[19] = controllerState.isDpad
+                    buffer[20] = controllerState.isJoystick
+                    buffer[21] = controllerState.isMacro
+                    
+                    udpSocket.send(packet)
+                } catch (e: Exception) {
+                    Log.e("UDP_LOOP", "Error: ${e.message}")
+                }
+                try {
+                    Thread.sleep(4) // 250Hz = 4ms
+                } catch (e: InterruptedException) {
+                    break
                 }
             }
         }
+        thread.priority = Thread.MAX_PRIORITY
+        thread.start()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        isLoopRunning = false
+        Thread {
+            try {
+                val udpSocket = SharedObject.getSocket()
+                if (udpSocket != null && SharedObject.serverIp.isNotEmpty()) {
+                    val serverAddress = java.net.InetAddress.getByName(SharedObject.serverIp)
+                    val buffer = byteArrayOf(0x02) // Packet Type: Disconnect
+                    val packet = java.net.DatagramPacket(buffer, buffer.size, serverAddress, SharedObject.serverPort)
+                    udpSocket.send(packet)
+                }
+            } catch (e: Exception) {}
+        }.start()
     }
 
     private fun sendData(data: ByteArray) {
@@ -495,60 +579,39 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
             for (buttonId in setOf(R.id.key_m1, R.id.key_m2, R.id.key_m3, R.id.key_m4))
                 findViewById<ImageButton>(buttonId)?.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
         }
-        dataChannel.trySend(data).isSuccess
     }
 
-    private fun sendDataToSocket(data: ByteArray) {
-        try {
-            outputStream?.write(data)?.also { outputStream.flush() }
-        } catch (e: SocketException) {
-            Log.e("Error", "Error: ${e.message}")
-            runOnUiThread {
-                Toast.makeText(this@ControllerPlayActivity, "Connection Lost. Please Reconnect Controller", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    @OptIn(DelicateCoroutinesApi::class)
     private fun macroCancelHandler() {
-        if (macroCount == 1 && threadExited) {
-            GlobalScope.launch(Dispatchers.IO) {
-                threadExited = false
-                val inputStream = SharedObject.getSocket()?.getInputStream()
-                while (true) {
-                    try {
-                        val macroStatus = inputStream?.read()
-                        if (macroStatus == 1) {
-                            threadExited = true
-                            macroClicked = false
-                            for (buttonId in setOf(R.id.key_m1, R.id.key_m2, R.id.key_m3, R.id.key_m4))
-                                findViewById<ImageButton>(buttonId)?.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN)
-                        }
-                        macroCount--
-                        if (macroCount == 0)
-                            break
-                    } catch (_: Exception) {}
-                }
-            }
-        }
     }
 
     private fun Gamepad(wbutton: Int = 0, LT: UByte = 0u, RT: UByte = 0u, Lx: Short = 0, Ly: Short = 0, Rx: Short = 0, Ry: Short = 0, isPressed: Byte = 0, isDpad: Byte = 0, isJoystick: Byte = 0, macro: Byte = 0, keyboard: Byte = 0): ByteArray {
-        val data = ByteBuffer.allocate(17).order(ByteOrder.LITTLE_ENDIAN).apply {
-            put(byteArrayOf((wbutton and 0xFF).toByte(), ((wbutton shr 8) and 0xFF).toByte()))
-            put(LT.toByte())
-            put(RT.toByte())
-            putShort(Lx)
-            putShort(Ly)
-            putShort(Rx)
-            putShort(Ry)
-            put(isPressed)
-            put(isDpad)
-            put(isJoystick)
-            put(macro)
-            put(keyboard)
-        }.array()
-        return data
+        if (isDpad.toInt() == 1) {
+            if (isPressed.toInt() == 0 && wbutton == 0) {
+                controllerState.wbutton = controllerState.wbutton and 0xFFF0
+            } else {
+                controllerState.wbutton = controllerState.wbutton and 0xFFF0
+                controllerState.wbutton = controllerState.wbutton or wbutton
+            }
+        } else if (wbutton != 0) {
+            if (isPressed.toInt() == 1) {
+                controllerState.wbutton = controllerState.wbutton or wbutton
+            } else {
+                controllerState.wbutton = controllerState.wbutton and wbutton.inv()
+            }
+        }
+        
+        if (isDpad.toInt() == 2) controllerState.LT = LT
+        if (isDpad.toInt() == 3) controllerState.RT = RT
+        
+        if (isJoystick.toInt() == 1) {
+            controllerState.Lx = Lx
+            controllerState.Ly = Ly
+        } else if (isJoystick.toInt() == 2) {
+            controllerState.Rx = Rx
+            controllerState.Ry = Ry
+        }
+        
+        return ByteArray(0)
     }
 
     @SuppressLint("ClickableViewAccessibility", "NewApi")

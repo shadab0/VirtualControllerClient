@@ -447,31 +447,33 @@ class MainActivity : AppCompatActivity() {
     private fun connectSocket(serverIp: String, serverPort: Int, dialog: AlertDialog) {
         GlobalScope.launch(Dispatchers.IO) {
             try {
-                val socket = Socket(serverIp, serverPort)
-                outputStream = socket.getOutputStream()
-                SharedObject.setSocketAndOutputStream(socket, outputStream)
-//                val m1 = File(applicationContext.dataDir, "macros/${sharedPrefs.getString("M1", "None")}.bin")
-//                    .takeIf { it.exists() }?.readBytes()
-//                val m2 = File(applicationContext.dataDir, "macros/${sharedPrefs.getString("M2", "None")}.bin")
-//                    .takeIf { it.exists() }?.readBytes()
-//                val m3 = File(applicationContext.dataDir, "macros/${sharedPrefs.getString("M3", "None")}.bin")
-//                    .takeIf { it.exists() }?.readBytes()
-//                val m4 = File(applicationContext.dataDir, "macros/${sharedPrefs.getString("M4", "None")}.bin")
-//                    .takeIf { it.exists() }?.readBytes()
-//                val size = ByteBuffer.allocate(17).order(ByteOrder.LITTLE_ENDIAN).putInt(m1?.size ?: 1).putInt(m2?.size ?: 1).putInt(m3?.size ?: 1).putInt(m4?.size ?: 1)
-//                    .array()
-//                outputStream.write(size).also { outputStream.flush() }
-//                for (m in arrayOf(m1, m2, m3, m4)) {
-//                    if (m != null)
-//                        outputStream.write(m).also { outputStream.flush() }
-//                    else
-//                        outputStream.write(0x00).also { outputStream.flush() }
-//                }
-                withContext(Dispatchers.Main) {
-                    startService(Intent(this@MainActivity, ConnectionMonitorService::class.java))
-                    dialog.dismiss()
-                    textView.text = "Connected : $serverIp"
-                    Toast.makeText(this@MainActivity, "Controller Connected Successfully", Toast.LENGTH_SHORT).show()
+                val udpSocket = DatagramSocket()
+                udpSocket.soTimeout = 2000 // 2 seconds timeout for connect ack
+                val connectPacketData = byteArrayOf(0x00) // Packet Type: Connect
+                val serverAddress = java.net.InetAddress.getByName(serverIp)
+                val connectPacket = DatagramPacket(connectPacketData, connectPacketData.size, serverAddress, serverPort)
+                udpSocket.send(connectPacket)
+                
+                val buffer = ByteArray(2)
+                val ackPacket = DatagramPacket(buffer, buffer.size)
+                udpSocket.receive(ackPacket)
+                
+                if (buffer[0] == 0x00.toByte()) {
+                    val clientSlot = buffer[1]
+                    SharedObject.setSocket(udpSocket)
+                    SharedObject.serverIp = serverIp
+                    SharedObject.serverPort = serverPort
+                    SharedObject.clientSlot = clientSlot
+                    
+                    withContext(Dispatchers.Main) {
+                        dialog.dismiss()
+                        textView.text = "Connected : $serverIp (Slot $clientSlot)"
+                        Toast.makeText(this@MainActivity, "Controller Connected Successfully", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@MainActivity, "Invalid response from server", Toast.LENGTH_LONG).show()
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("SocketClient", "Error: ${e.message}")
