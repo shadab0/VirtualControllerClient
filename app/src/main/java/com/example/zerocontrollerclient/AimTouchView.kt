@@ -71,6 +71,10 @@ class AimTouchView(context: Context, attrs: AttributeSet?) : View(context, attrs
     }
 
     init {
+        reloadSettings()
+    }
+
+    fun reloadSettings() {
         val prefs = context.getSharedPreferences("selected_macros", Context.MODE_PRIVATE)
         sensitivity = prefs.getFloat("sensitivity", 1800f)
         antiDeadzone = prefs.getFloat("anti_deadzone", 7500f)
@@ -90,9 +94,10 @@ class AimTouchView(context: Context, attrs: AttributeSet?) : View(context, attrs
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        val prefs = context.getSharedPreferences("selected_macros", Context.MODE_PRIVATE)
-        sensitivity = prefs.getFloat("sensitivity", 1800f)
-        antiDeadzone = prefs.getFloat("anti_deadzone", 7500f)
+        // Only load settings on ACTION_DOWN or occasionally to avoid I/O in the tight loop
+        if (event.actionMasked == MotionEvent.ACTION_DOWN || event.actionMasked == MotionEvent.ACTION_POINTER_DOWN) {
+            reloadSettings()
+        }
 
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
@@ -124,13 +129,9 @@ class AimTouchView(context: Context, attrs: AttributeSet?) : View(context, attrs
                     val remainingRange = MAX_JOYSTICK - antiDeadzone
                     var scaledMagnitude = antiDeadzone + magnitude * (remainingRange / MAX_JOYSTICK)
 
-                    // Circular clamp to preserve diagonal angle accuracy
-                    if (scaledMagnitude > MAX_JOYSTICK) {
-                        scaledMagnitude = MAX_JOYSTICK
-                    }
-
-                    targetJoyX = normalizedX * scaledMagnitude
-                    targetJoyY = normalizedY * scaledMagnitude
+                    // Independent Square Clamp (matches Xbox stick physical boundary)
+                    targetJoyX = (normalizedX * scaledMagnitude).coerceIn(-MAX_JOYSTICK, MAX_JOYSTICK)
+                    targetJoyY = (normalizedY * scaledMagnitude).coerceIn(-MAX_JOYSTICK, MAX_JOYSTICK)
                 } else {
                     targetJoyX = 0f
                     targetJoyY = 0f

@@ -18,11 +18,19 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
+import android.widget.SeekBar
+import android.widget.Switch
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -57,6 +65,20 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
     private val handler = Handler()
     private val isTouching = mutableMapOf<Int, Boolean>()
 
+    private var touchJoyX = 0f
+    private var touchJoyY = 0f
+    private var physJoyRx = 0
+    private var physJoyRy = 0
+    private var gyroJoyX = 0f
+    private var gyroJoyY = 0f
+
+    private lateinit var sensorManager: SensorManager
+    private var gyroSensor: Sensor? = null
+    private var isGyroEnabled = false
+    private var gyroSensitivity = 1800f
+    private var gyroAntiDeadzone = 7500f
+    private var aimTouchViewRef: AimTouchView? = null
+
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,6 +94,11 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
         } else
             getSystemService(VIBRATOR_SERVICE) as Vibrator
         vibrate = sharedPrefs.getBoolean("vibrate", true)
+        
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        gyroSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+        setupDrawerSettings()
+
         initCoroutines()
 
         val record_layout = findViewById<LinearLayout>(R.id.record_layout)
@@ -214,10 +241,120 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
 
     }
 
+    override fun onResume() {
+        super.onResume()
+        gyroSensor?.let {
+            sensorManager.registerListener(gyroListener, it, SensorManager.SENSOR_DELAY_GAME)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        sensorManager.unregisterListener(gyroListener)
+    }
+
+    private val gyroListener = object : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent) {
+            if (!isGyroEnabled) {
+                gyroJoyX = 0f
+                gyroJoyY = 0f
+                return
+            }
+
+            // Corrected standard mapping for Landscape Gyro
+            val yaw = -(event.values[0] + event.values[2])
+            val pitch = -event.values[1]
+
+            val rawGyroX = yaw * gyroSensitivity
+            val rawGyroY = pitch * gyroSensitivity
+
+            val magnitude = kotlin.math.sqrt((rawGyroX * rawGyroX + rawGyroY * rawGyroY).toDouble()).toFloat()
+
+            // Must be high enough to prevent natural hand noise from triggering the 7500 anti-deadzone
+            // which causes massive jitter and drowns out the Touchpad
+            val noiseDeadzone = 100f
+            
+            if (magnitude > noiseDeadzone) {
+                val normalizedX = rawGyroX / magnitude
+                val normalizedY = rawGyroY / magnitude
+
+                val remainingRange = 32767f - gyroAntiDeadzone
+                val scaledMagnitude = gyroAntiDeadzone + (magnitude - noiseDeadzone) * (remainingRange / 32767f)
+
+                // Instant 1:1 mapping with square clamping for accurate diagonal speed
+                gyroJoyX = (normalizedX * scaledMagnitude).coerceIn(-32767f, 32767f)
+                gyroJoyY = (normalizedY * scaledMagnitude).coerceIn(-32767f, 32767f)
+            } else {
+                gyroJoyX = 0f
+                gyroJoyY = 0f
+            }
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+    }
+
+    private fun setupDrawerSettings() {
+        val sharedPrefs = getSharedPreferences("selected_macros", Context.MODE_PRIVATE)
+        isGyroEnabled = sharedPrefs.getBoolean("gyro_enabled", false)
+        gyroSensitivity = sharedPrefs.getFloat("gyro_sens", 1800f)
+        gyroAntiDeadzone = sharedPrefs.getFloat("gyro_ad", 7500f)
+
+        val switchGyro = findViewById<Switch>(R.id.switch_gyro)
+        val seekbarGyroSens = findViewById<SeekBar>(R.id.seekbar_gyro_sens)
+        val seekbarGyroAd = findViewById<SeekBar>(R.id.seekbar_gyro_ad)
+        val seekbarTouchSens = findViewById<SeekBar>(R.id.seekbar_touch_sens)
+        val seekbarTouchAd = findViewById<SeekBar>(R.id.seekbar_touch_ad)
+
+        switchGyro.isChecked = isGyroEnabled
+        seekbarGyroSens.progress = gyroSensitivity.toInt()
+        seekbarGyroAd.progress = gyroAntiDeadzone.toInt()
+        seekbarTouchSens.progress = sharedPrefs.getFloat("sensitivity", 1800f).toInt()
+        seekbarTouchAd.progress = sharedPrefs.getFloat("anti_deadzone", 7500f).toInt()
+
+        switchGyro.setOnCheckedChangeListener { _, isChecked ->
+            isGyroEnabled = isChecked
+            sharedPrefs.edit().putBoolean("gyro_enabled", isChecked).apply()
+        }
+
+        val seekBarListener = object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                val editor = sharedPrefs.edit()
+                when (seekBar?.id) {
+                    R.id.seekbar_gyro_sens -> {
+                        gyroSensitivity = progress.toFloat()
+                        editor.putFloat("gyro_sens", gyroSensitivity)
+                    }
+                    R.id.seekbar_gyro_ad -> {
+                        gyroAntiDeadzone = progress.toFloat()
+                        editor.putFloat("gyro_ad", gyroAntiDeadzone)
+                    }
+                    R.id.seekbar_touch_sens -> {
+                        editor.putFloat("sensitivity", progress.toFloat())
+                        aimTouchViewRef?.reloadSettings()
+                    }
+                    R.id.seekbar_touch_ad -> {
+                        editor.putFloat("anti_deadzone", progress.toFloat())
+                        aimTouchViewRef?.reloadSettings()
+                    }
+                }
+                editor.apply()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        }
+
+        seekbarGyroSens.setOnSeekBarChangeListener(seekBarListener)
+        seekbarGyroAd.setOnSeekBarChangeListener(seekBarListener)
+        seekbarTouchSens.setOnSeekBarChangeListener(seekBarListener)
+        seekbarTouchAd.setOnSeekBarChangeListener(seekBarListener)
+    }
+
     @SuppressLint("ClickableViewAccessibility", "InflateParams")
     private fun onLoadLayout(buttonList: MutableList<Pair<Pair<Pair<Int, Int>, Pair<Int, Int>>, Pair<Pair<Float, Float>, Pair<Int, Int>>>>) {
         if (this.getSharedPreferences("selected_macros", Context.MODE_PRIVATE).getBoolean("aim_touch", false)) {
             val aimTouchView = AimTouchView(this, null)
+            aimTouchViewRef = aimTouchView
             val layoutParams = RelativeLayout.LayoutParams(resources.displayMetrics.widthPixels / 2, resources.displayMetrics.heightPixels)
             layoutParams.addRule(RelativeLayout.ALIGN_PARENT_END, RelativeLayout.TRUE)
             aimTouchView.layoutParams = layoutParams
@@ -227,8 +364,8 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
                     if (isRecording)
                         macro_data.append("${delayTime()},R $aimTouchX $aimTouchY,")
                     if (!isMacro) {
-                        controllerState.Rx = aimTouchX.toInt().toShort()
-                        controllerState.Ry = aimTouchY.toInt().toShort()
+                        touchJoyX = aimTouchX
+                        touchJoyY = aimTouchY
                     }
                 }
             })
@@ -293,8 +430,8 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
                             if (isRecording)
                                 macro_data.append("${delayTime()}|R $joystickX $joystickY,")
                             if (!isMacro) {
-                                controllerState.Rx = joystickX.toShort()
-                                controllerState.Ry = joystickY.toShort()
+                                physJoyRx = joystickX
+                                physJoyRy = joystickY
                             }
                         }
 
@@ -302,8 +439,8 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
                             if (isRecording)
                                 macro_data.append("${delayTime()},R $joystickX $joystickY,")
                             if (!isMacro) {
-                                controllerState.Rx = joystickX.toShort()
-                                controllerState.Ry = joystickY.toShort()
+                                physJoyRx = joystickX
+                                physJoyRy = joystickY
                             }
                         }
 
@@ -311,8 +448,8 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
                             if (isRecording)
                                 macro_data.append("${delayTime()}|R0 0|")
                             if (!isMacro) {
-                                controllerState.Rx = 0.toShort()
-                                controllerState.Ry = 0.toShort()
+                                physJoyRx = 0
+                                physJoyRy = 0
                             }
                             vibrate()
                         }
@@ -529,11 +666,16 @@ class ControllerPlayActivity : AppCompatActivity(), View.OnTouchListener {
                     buffer[12] = (ly and 0xFF).toByte()
                     buffer[13] = ((ly shr 8) and 0xFF).toByte()
                     
-                    val rx = controllerState.Rx.toInt()
+                    var totalRx = physJoyRx + touchJoyX + gyroJoyX
+                    var totalRy = physJoyRy + touchJoyY + gyroJoyY
+                    
+                    val rx = totalRx.toInt().coerceIn(-32767, 32767)
+                    controllerState.Rx = rx.toShort()
                     buffer[14] = (rx and 0xFF).toByte()
                     buffer[15] = ((rx shr 8) and 0xFF).toByte()
                     
-                    val ry = controllerState.Ry.toInt()
+                    val ry = totalRy.toInt().coerceIn(-32767, 32767)
+                    controllerState.Ry = ry.toShort()
                     buffer[16] = (ry and 0xFF).toByte()
                     buffer[17] = ((ry shr 8) and 0xFF).toByte()
                     
